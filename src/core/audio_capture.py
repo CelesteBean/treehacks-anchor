@@ -48,6 +48,7 @@ from typing import Any
 
 import numpy as np
 import sounddevice as sd
+from scipy.signal import resample as _scipy_resample
 import zmq
 
 from src.core.message_bus import AUDIO_PORT, MessageBus
@@ -57,6 +58,38 @@ from src.core.message_bus import AUDIO_PORT, MessageBus
 # ---------------------------------------------------------------------------
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Audio resampling
+# ---------------------------------------------------------------------------
+
+
+def resample_audio(audio: np.ndarray, orig_rate: int, target_rate: int) -> np.ndarray:
+    """Resample an int16 audio array from *orig_rate* to *target_rate*.
+
+    Uses SciPy's FFT-based resampling.  Returns the original array
+    unchanged when the rates already match.
+
+    Parameters
+    ----------
+    audio:
+        1-D NumPy array of int16 PCM samples.
+    orig_rate:
+        Sample rate of *audio* (Hz).
+    target_rate:
+        Desired output sample rate (Hz).
+
+    Returns
+    -------
+    np.ndarray
+        Resampled int16 audio array.
+    """
+    if orig_rate == target_rate:
+        return audio
+    num_samples = int(len(audio) * target_rate / orig_rate)
+    resampled = _scipy_resample(audio.astype(np.float32), num_samples)
+    return np.clip(resampled, -32768, 32767).astype(np.int16)
 
 
 # ---------------------------------------------------------------------------
@@ -70,22 +103,35 @@ class AudioConfig:
     Attributes
     ----------
     sample_rate:
-        Samples per second.  16 kHz is the standard for speech models
-        (Whisper, wav2vec 2.0).
+        Target output sample rate (Hz).  16 kHz is the standard for
+        speech models (Whisper, wav2vec 2.0).  All published audio is
+        at this rate regardless of the microphone's native rate.
     channels:
         Number of audio channels.  Mono (1) is sufficient for speech.
     chunk_size:
-        Number of samples per callback invocation.  1024 at 16 kHz ≈ 64 ms
-        per chunk — a good balance between latency and overhead.
+        Number of samples per callback invocation at the *native* rate.
+        Actual published chunk size may differ after resampling.
     device_name:
         Optional substring to match against available device names.
         ``None`` selects the system default input device.
+    device_index:
+        Direct PortAudio device index.  Takes precedence over
+        ``device_name`` when both are set.  ``None`` falls back to
+        name-based or system-default selection.
+    native_rate:
+        The microphone's native sample rate (Hz).  When set and
+        different from ``sample_rate``, each chunk is resampled from
+        ``native_rate`` to ``sample_rate`` before publishing.
+        ``None`` means the mic records at ``sample_rate`` directly
+        (no resampling).
     """
 
     sample_rate: int = 16000
     channels: int = 1
     chunk_size: int = 1024
     device_name: str | None = None
+    device_index: int | None = None
+    native_rate: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +229,17 @@ class AudioCapture:
         clamped: np.ndarray = np.clip(indata, -1.0, 1.0)
         int16_samples: np.ndarray = (clamped * 32767).astype(np.int16)
 
-        # Flatten to 1-D before encoding (strips channel dimension).
-        raw_bytes: bytes = int16_samples.flatten().tobytes()
+        # Flatten to 1-D (strips channel dimension).
+        flat_samples: np.ndarray = int16_samples.flatten()
+
+        # Resample from native mic rate to target pipeline rate if needed.
+        effective_native: int = self.config.native_rate or self.config.sample_rate
+        if effective_native != self.config.sample_rate:
+            flat_samples = resample_audio(
+                flat_samples, effective_native, self.config.sample_rate,
+            )
+
+        raw_bytes: bytes = flat_samples.tobytes()
         b64_samples: str = base64.b64encode(raw_bytes).decode("ascii")
 
         payload: dict[str, Any] = {
@@ -221,17 +276,21 @@ class AudioCapture:
             self._publisher = self.bus.create_publisher(AUDIO_PORT)
 
         self.running = True
+        effective_native: int = self.config.native_rate or self.config.sample_rate
         logger.info(
-            "Starting audio capture: %d Hz, %d ch, chunk=%d, device=%s",
+            "Starting audio capture: native=%d Hz → target=%d Hz, %d ch, "
+            "chunk=%d, device=%s",
+            effective_native,
             self.config.sample_rate,
             self.config.channels,
             self.config.chunk_size,
             device_index if device_index is not None else "default",
         )
 
-        # Open the PortAudio stream.  This may raise PortAudioError.
+        # Open the PortAudio stream at the mic's native rate.  Resampling
+        # to the target rate (if different) happens inside _audio_callback.
         stream = sd.InputStream(
-            samplerate=self.config.sample_rate,
+            samplerate=effective_native,
             channels=self.config.channels,
             blocksize=self.config.chunk_size,
             dtype="float32",
@@ -306,13 +365,20 @@ class AudioCapture:
         )
 
     def _resolve_device(self) -> int | None:
-        """Match ``config.device_name`` to a PortAudio device index.
+        """Resolve the PortAudio device index from config.
+
+        Priority: ``device_index`` (explicit) > ``device_name`` (substring
+        match) > ``None`` (system default).
 
         Returns
         -------
         int | None
             Device index, or ``None`` to use the system default.
         """
+        if self.config.device_index is not None:
+            logger.info("Using explicit device index %d", self.config.device_index)
+            return self.config.device_index
+
         if self.config.device_name is None:
             return None
 
@@ -336,7 +402,29 @@ class AudioCapture:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import argparse
     import sys
+
+    parser = argparse.ArgumentParser(
+        description="Audio capture with optional resampling for Anchor pipeline",
+    )
+    parser.add_argument(
+        "--device", type=int, default=0,
+        help="PortAudio device index (default: 0)",
+    )
+    parser.add_argument(
+        "--native-rate", type=int, default=44100,
+        help="Microphone native sample rate in Hz (default: 44100)",
+    )
+    parser.add_argument(
+        "--target-rate", type=int, default=16000,
+        help="Output sample rate for pipeline in Hz (default: 16000)",
+    )
+    parser.add_argument(
+        "--seconds", type=float, default=5.0,
+        help="Duration to capture in seconds (default: 5.0)",
+    )
+    args = parser.parse_args()
 
     logging.basicConfig(
         level=logging.DEBUG,
@@ -353,11 +441,20 @@ if __name__ == "__main__":
         marker = " <-- input" if in_ch > 0 else ""
         print(f"  [{i}] {dev.get('name', '?')} (in={in_ch}){marker}")
 
-    # -- 2. Capture 5 seconds ------------------------------------------------
-    CAPTURE_SECONDS: float = 5.0
-    config = AudioConfig()
+    # -- 2. Capture audio ----------------------------------------------------
+    CAPTURE_SECONDS: float = args.seconds
+    config = AudioConfig(
+        sample_rate=args.target_rate,
+        device_index=args.device,
+        native_rate=args.native_rate,
+    )
     bus = MessageBus()
     capture = AudioCapture(config=config, bus=bus)
+
+    print(
+        f"\n=== Config: device={args.device}, native={args.native_rate} Hz "
+        f"→ target={args.target_rate} Hz ==="
+    )
 
     # ── FIX: bind the publisher FIRST, then create the subscriber. ──────
     # The original code created the subscriber before the publisher existed,

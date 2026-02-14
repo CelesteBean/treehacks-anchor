@@ -28,7 +28,7 @@ import numpy as np
 import pytest
 import zmq
 
-from src.core.audio_capture import AudioCapture, AudioConfig
+from src.core.audio_capture import AudioCapture, AudioConfig, resample_audio
 from src.core.message_bus import AUDIO_PORT, MessageBus
 
 
@@ -55,12 +55,72 @@ class TestAudioConfig:
         cfg = AudioConfig()
         assert cfg.device_name is None
 
+    def test_default_device_index_is_none(self) -> None:
+        cfg = AudioConfig()
+        assert cfg.device_index is None
+
+    def test_default_native_rate_is_none(self) -> None:
+        cfg = AudioConfig()
+        assert cfg.native_rate is None
+
     def test_custom_values(self) -> None:
         cfg = AudioConfig(sample_rate=44100, channels=2, chunk_size=512, device_name="USB Mic")
         assert cfg.sample_rate == 44100
         assert cfg.channels == 2
         assert cfg.chunk_size == 512
         assert cfg.device_name == "USB Mic"
+
+    def test_custom_device_index_and_native_rate(self) -> None:
+        cfg = AudioConfig(device_index=0, native_rate=44100)
+        assert cfg.device_index == 0
+        assert cfg.native_rate == 44100
+        assert cfg.sample_rate == 16000  # target unchanged
+
+
+# ---------------------------------------------------------------------------
+# AudioCapture construction
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# resample_audio
+# ---------------------------------------------------------------------------
+
+class TestResampleAudio:
+    """resample_audio must correctly downsample int16 PCM arrays."""
+
+    def test_no_op_when_rates_match(self) -> None:
+        audio = np.array([100, 200, 300], dtype=np.int16)
+        result = resample_audio(audio, 16000, 16000)
+        np.testing.assert_array_equal(result, audio)
+
+    def test_returns_same_object_when_rates_match(self) -> None:
+        audio = np.array([100, 200, 300], dtype=np.int16)
+        result = resample_audio(audio, 16000, 16000)
+        assert result is audio
+
+    def test_downsamples_44100_to_16000(self) -> None:
+        """1024 samples at 44100 Hz should become ~371 at 16000 Hz."""
+        rng = np.random.default_rng(42)
+        audio = rng.integers(-10000, 10000, size=1024, dtype=np.int16)
+        result = resample_audio(audio, 44100, 16000)
+        expected_len = int(1024 * 16000 / 44100)  # 371
+        assert len(result) == expected_len
+        assert result.dtype == np.int16
+
+    def test_upsamples_16000_to_44100(self) -> None:
+        rng = np.random.default_rng(7)
+        audio = rng.integers(-5000, 5000, size=371, dtype=np.int16)
+        result = resample_audio(audio, 16000, 44100)
+        expected_len = int(371 * 44100 / 16000)  # 1023
+        assert len(result) == expected_len
+        assert result.dtype == np.int16
+
+    def test_output_clipped_to_int16_range(self) -> None:
+        """Extreme values must not overflow int16 after resampling."""
+        audio = np.array([32767, -32768] * 512, dtype=np.int16)
+        result = resample_audio(audio, 44100, 16000)
+        assert result.min() >= -32768
+        assert result.max() <= 32767
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +225,20 @@ class TestAudioCallback:
         self.capture._audio_callback(fake_audio, frames=1024, time_info=None, status=None)
 
         item = self.capture._queue.get_nowait()
+        assert item["sample_rate"] == 16000
+
+    def test_callback_resamples_when_native_rate_set(self) -> None:
+        """When native_rate=44100, 1024 samples should become ~371 at 16000."""
+        cfg = AudioConfig(native_rate=44100)
+        capture = AudioCapture(config=cfg, bus=MessageBus())
+        fake_audio = np.random.uniform(-0.5, 0.5, (1024, 1)).astype(np.float32)
+        capture._audio_callback(fake_audio, frames=1024, time_info=None, status=None)
+
+        item = capture._queue.get_nowait()
+        decoded = base64.b64decode(item["samples"])
+        recovered = np.frombuffer(decoded, dtype=np.int16)
+        expected_len = int(1024 * 16000 / 44100)
+        assert len(recovered) == expected_len
         assert item["sample_rate"] == 16000
 
 
