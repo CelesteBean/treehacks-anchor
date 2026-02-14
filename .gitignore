@@ -1,0 +1,7 @@
+venv/
+models/*.onnx
+__pycache__/
+*.pyc
+.env
+*.wav
+*.mp3
