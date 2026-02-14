@@ -430,11 +430,12 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     stressScoreEl.className = "score-big " +
       (score > 0.7 ? "score-high" : score > 0.4 ? "score-medium" : "score-low");
 
-    if (data.indicators && typeof data.indicators === "object") {
-      const parts = Object.entries(data.indicators)
-        .map(([k, v]) => k + ": " + (typeof v === "number" ? v.toFixed(2) : v));
-      stressIndEl.textContent = parts.join("  ·  ") || "No indicators";
-    }
+    const parts = [];
+    if (data.arousal != null)    parts.push("arousal: " + data.arousal.toFixed(2));
+    if (data.valence != null)    parts.push("valence: " + data.valence.toFixed(2));
+    if (data.dominance != null)  parts.push("dominance: " + data.dominance.toFixed(2));
+    if (data.confidence != null) parts.push("confidence: " + data.confidence.toFixed(2));
+    stressIndEl.textContent = parts.length > 0 ? parts.join("  \u00b7  ") : "No indicators";
   });
 
   /* ── Tactic ──────────────────────────────────────────────────── */
@@ -612,13 +613,31 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
                 )
 
             elif topic == "stress":
+                # stress_detector publishes: stress_score, emotions{}, confidence
+                stress_score: float = float(data.get("stress_score", 0.0))
+                emotions: dict[str, Any] = data.get("emotions", {})
+                if not isinstance(emotions, dict):
+                    logger.warning(
+                        "Malformed stress message: 'emotions' is %s, expected dict",
+                        type(emotions).__name__,
+                    )
+                    emotions = {}
+
+                arousal: float = float(emotions.get("arousal", stress_score))
+                valence: float = float(emotions.get("valence", 0.0))
+                dominance: float = float(emotions.get("dominance", 0.0))
+                confidence: float = float(data.get("confidence", 0.0))
+
                 socketio.emit("stress", {
-                    "score": data.get("score", 0.0),
-                    "indicators": data.get("indicators", {}),
+                    "score": stress_score,
+                    "arousal": arousal,
+                    "valence": valence,
+                    "dominance": dominance,
+                    "confidence": confidence,
                     "timestamp": timestamp,
                 })
                 total_emitted += 1
-                logger.info("Emitted stress: score=%.2f", data.get("score", 0.0))
+                logger.info("Emitted stress: score=%.2f", stress_score)
 
             elif topic == "tactic":
                 socketio.emit("tactic", {
