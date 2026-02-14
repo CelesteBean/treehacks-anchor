@@ -112,28 +112,37 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ANCHOR — Live Dashboard</title>
+<title>.anchor — Judge's Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* ── Reset & Base ─────────────────────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    background: #0a0a0a;
-    color: #ffffff;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #1E272E;
+    color: #FFFFFF;
+    font-size: 16px;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
   /* ── Palette ──────────────────────────────────────────────────── */
   :root {
-    --bg:      #0a0a0a;
-    --surface: #141414;
-    --border:  #2a2a2a;
-    --text:    #ffffff;
-    --dim:     #888888;
-    --accent:  #64ffda;
-    --danger:  #ff6464;
-    --warn:    #ffbd44;
+    --bg:      #1E272E;
+    --surface: rgba(255, 255, 255, 0.05);
+    --border:  rgba(178, 190, 195, 0.20);
+    --text:    #FFFFFF;
+    --dim:     #B2BEC3;
+    --accent:  #5BBFB3;
+    --danger:  #E17055;
+    --success: #00B894;
+    --warn:    #FDCB6E;
+  }
+
+  /* ── Pulsing status-dot animation ───────────────────────────── */
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(91, 191, 179, 0.5); }
+    50%      { box-shadow: 0 0 0 6px rgba(91, 191, 179, 0); }
   }
 
   /* ── Header ───────────────────────────────────────────────────── */
@@ -144,24 +153,29 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   }
   header h1 {
     font-size: 2rem;
-    letter-spacing: 0.3em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     color: var(--accent);
     margin-bottom: 4px;
   }
   header p {
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     color: var(--dim);
-    font-style: italic;
+    font-weight: 400;
   }
   .status-dot {
     display: inline-block;
     width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--danger);
-    margin-right: 6px;
+    margin-right: 8px;
+    vertical-align: middle;
     transition: background 0.3s;
   }
-  .status-dot.connected { background: var(--accent); }
+  .status-dot.connected {
+    background: var(--accent);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
 
   /* ── Grid layout ──────────────────────────────────────────────── */
   .grid {
@@ -179,14 +193,16 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
   .card h2 {
-    font-size: 0.7rem;
+    font-size: 14px;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.05em;
     color: var(--dim);
     margin-bottom: 10px;
   }
@@ -196,16 +212,16 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   #transcript-lines {
     flex: 1;
     overflow-y: auto;
-    font-size: 0.85rem;
+    font-size: 1rem;
     line-height: 1.6;
-    color: #d0d0d0;
+    color: var(--dim);
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
-  #transcript-lines .line { padding: 2px 0; }
+  #transcript-lines .line { padding: 2px 0; color: var(--text); }
   #transcript-lines .line .ts {
     color: var(--dim);
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     margin-right: 8px;
   }
   .waiting-msg {
@@ -226,7 +242,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .meter-bar-bg {
     width: 100%;
     height: 28px;
-    background: #1a1a1a;
+    background: rgba(255, 255, 255, 0.04);
     border-radius: 14px;
     overflow: hidden;
     position: relative;
@@ -234,23 +250,24 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .meter-bar-fill {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, var(--accent), var(--warn), var(--danger));
+    background: var(--accent);
     border-radius: 14px;
     transition: width 0.15s ease-out;
   }
   .rms-value {
     font-size: 2.5rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--accent);
   }
   .rms-label {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 500;
     color: var(--dim);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
   }
   .chunk-counter {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: var(--dim);
   }
 
@@ -260,7 +277,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 
   .score-big {
     font-size: 2.2rem;
-    font-weight: 700;
+    font-weight: 600;
     transition: color 0.3s;
   }
   .score-low    { color: var(--accent); }
@@ -268,8 +285,8 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .score-high   { color: var(--danger); }
 
   .indicators {
-    font-size: 0.75rem;
-    color: #aaa;
+    font-size: 0.875rem;
+    color: var(--dim);
     margin-top: 6px;
     line-height: 1.5;
   }
@@ -279,19 +296,26 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     margin-top: 8px;
   }
   .tactic-list li {
-    padding: 4px 8px;
-    margin: 3px 0;
-    background: rgba(255, 100, 100, 0.1);
+    padding: 6px 10px;
+    margin: 4px 0;
+    background: rgba(225, 112, 85, 0.08);
     border-left: 3px solid var(--danger);
     border-radius: 0 4px 4px 0;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
+    color: var(--text);
+  }
+
+  /* ── Alert glow for high-risk tactic card ──────────────────────── */
+  #tactic-card.alert-active {
+    border-color: var(--danger);
+    box-shadow: 0 0 12px rgba(225, 112, 85, 0.25);
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1><span class="status-dot" id="status-dot"></span>ANCHOR</h1>
+  <h1><span class="status-dot" id="status-dot"></span>.anchor</h1>
   <p>We only hear one side. Watch what we know.</p>
 </header>
 
@@ -435,8 +459,16 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
       li.textContent = "No active tactics detected";
       li.style.color = "var(--accent)";
       li.style.borderLeftColor = "var(--accent)";
-      li.style.background = "rgba(100, 255, 218, 0.05)";
+      li.style.background = "rgba(91, 191, 179, 0.06)";
       tacticListEl.appendChild(li);
+    }
+
+    /* Toggle coral alert glow on tactic card when risk is high */
+    const tacticCard = document.getElementById("tactic-card");
+    if (risk > 0.7) {
+      tacticCard.classList.add("alert-active");
+    } else {
+      tacticCard.classList.remove("alert-active");
     }
   });
 
