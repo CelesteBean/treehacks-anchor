@@ -273,7 +273,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 
   /* ── Bottom cards ─────────────────────────────────────────────── */
   #stress-card { grid-column: 1; grid-row: 2; min-height: 140px; }
-  #tactic-card { grid-column: 2; grid-row: 2; min-height: 140px; }
+  #tactic-card { grid-column: 2; grid-row: 2; min-height: 240px; }
 
   .score-big {
     font-size: 2.2rem;
@@ -291,18 +291,77 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     line-height: 1.5;
   }
 
-  .tactic-list {
-    list-style: none;
-    margin-top: 8px;
+  /* ── Risk badge ─────────────────────────────────────────────── */
+  .risk-badge {
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 14px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 10px;
+    transition: background 0.3s, color 0.3s;
   }
-  .tactic-list li {
-    padding: 6px 10px;
-    margin: 4px 0;
-    background: rgba(225, 112, 85, 0.08);
-    border-left: 3px solid var(--danger);
-    border-radius: 0 4px 4px 0;
-    font-size: 0.875rem;
-    color: var(--text);
+  .risk-badge.risk-low {
+    color: var(--success);
+    background: rgba(0, 184, 148, 0.12);
+  }
+  .risk-badge.risk-medium {
+    color: var(--warn);
+    background: rgba(253, 203, 110, 0.12);
+  }
+  .risk-badge.risk-high {
+    color: var(--danger);
+    background: rgba(225, 112, 85, 0.15);
+  }
+
+  /* ── Tactic bars ────────────────────────────────────────────── */
+  .tactic-bars {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+  }
+  .tactic-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tactic-bar-label {
+    width: 80px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    color: var(--dim);
+    text-align: right;
+  }
+  .tactic-bar-bg {
+    flex: 1;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .tactic-bar-fill {
+    height: 100%;
+    border-radius: 9px;
+    transition: width 0.5s ease-out, background 0.3s;
+    min-width: 0;
+  }
+  .tactic-bar-pct {
+    width: 42px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--dim);
+    text-align: left;
+  }
+  .tactic-meta {
+    font-size: 0.7rem;
+    color: var(--dim);
+    margin-top: 8px;
+    text-align: right;
   }
 
   /* ── Alert glow for high-risk tactic card ──────────────────────── */
@@ -351,10 +410,11 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   <!-- Tactic -->
   <div class="card" id="tactic-card">
     <h2>Scam Tactic Detection</h2>
-    <div class="score-big score-low" id="risk-score">&mdash;</div>
-    <ul class="tactic-list" id="tactic-list">
-      <li class="waiting-msg">Waiting for tactic data&hellip;</li>
-    </ul>
+    <div class="risk-badge risk-low" id="risk-badge">&mdash;</div>
+    <div class="tactic-bars" id="tactic-bars">
+      <div class="waiting-msg" id="tactic-waiting">Waiting for tactic data&hellip;</div>
+    </div>
+    <div class="tactic-meta" id="tactic-meta"></div>
   </div>
 </div>
 
@@ -439,34 +499,62 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   });
 
   /* ── Tactic ──────────────────────────────────────────────────── */
-  const riskScoreEl = document.getElementById("risk-score");
-  const tacticListEl = document.getElementById("tactic-list");
+  const riskBadgeEl  = document.getElementById("risk-badge");
+  const tacticBarsEl = document.getElementById("tactic-bars");
+  const tacticMetaEl = document.getElementById("tactic-meta");
+  const tacticCard   = document.getElementById("tactic-card");
 
-  socket.on("tactic", (data) => {
-    const risk = data.risk_score != null ? data.risk_score : 0;
-    riskScoreEl.textContent = risk.toFixed(2);
-    riskScoreEl.className = "score-big " +
-      (risk > 0.7 ? "score-high" : risk > 0.4 ? "score-medium" : "score-low");
+  function tacticBarColor(v) {
+    return v > 0.7 ? "var(--danger)" : v > 0.4 ? "var(--warn)" : "var(--accent)";
+  }
 
-    tacticListEl.innerHTML = "";
-    if (data.active_tactics && data.active_tactics.length > 0) {
-      data.active_tactics.forEach((t) => {
-        const li = document.createElement("li");
-        li.textContent = typeof t === "string" ? t : JSON.stringify(t);
-        tacticListEl.appendChild(li);
-      });
-    } else {
-      const li = document.createElement("li");
-      li.textContent = "No active tactics detected";
-      li.style.color = "var(--accent)";
-      li.style.borderLeftColor = "var(--accent)";
-      li.style.background = "rgba(91, 191, 179, 0.06)";
-      tacticListEl.appendChild(li);
-    }
+  socket.on("tactics", (data) => {
+    /* ── Risk badge ─────────────────────────────────────────── */
+    const risk = (data.risk_level || "low").toLowerCase();
+    riskBadgeEl.textContent = risk.toUpperCase();
+    riskBadgeEl.className   = "risk-badge risk-" + risk;
 
-    /* Toggle coral alert glow on tactic card when risk is high */
-    const tacticCard = document.getElementById("tactic-card");
-    if (risk > 0.7) {
+    /* ── Tactic bars ────────────────────────────────────────── */
+    const tactics = data.tactics || {};
+    tacticBarsEl.innerHTML = "";
+    var keys = ["urgency", "authority", "fear", "isolation", "financial"];
+    keys.forEach(function(key) {
+      var val = tactics[key] != null ? tactics[key] : 0;
+      var pct = (val * 100).toFixed(0);
+
+      var row   = document.createElement("div");
+      row.className = "tactic-bar-row";
+
+      var label = document.createElement("span");
+      label.className = "tactic-bar-label";
+      label.textContent = key;
+
+      var bg    = document.createElement("div");
+      bg.className = "tactic-bar-bg";
+      var fill  = document.createElement("div");
+      fill.className = "tactic-bar-fill";
+      fill.style.width = pct + "%";
+      fill.style.background = tacticBarColor(val);
+      bg.appendChild(fill);
+
+      var pctEl = document.createElement("span");
+      pctEl.className = "tactic-bar-pct";
+      pctEl.textContent = pct + "%";
+
+      row.appendChild(label);
+      row.appendChild(bg);
+      row.appendChild(pctEl);
+      tacticBarsEl.appendChild(row);
+    });
+
+    /* ── Metadata ───────────────────────────────────────────── */
+    var parts = [];
+    if (data.transcript_count != null)  parts.push(data.transcript_count + " transcripts");
+    if (data.inference_time_ms != null) parts.push((data.inference_time_ms / 1000).toFixed(1) + "s inference");
+    tacticMetaEl.textContent = parts.length > 0 ? parts.join(" \u00b7 ") : "";
+
+    /* ── Alert glow ─────────────────────────────────────────── */
+    if (risk === "high") {
       tacticCard.classList.add("alert-active");
     } else {
       tacticCard.classList.remove("alert-active");
@@ -639,14 +727,22 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
                 total_emitted += 1
                 logger.info("Emitted stress: score=%.2f", stress_score)
 
-            elif topic == "tactic":
-                socketio.emit("tactic", {
-                    "risk_score": data.get("risk_score", 0.0),
-                    "active_tactics": data.get("active_tactics", []),
+            elif topic == "tactics":
+                tactics_dict: dict[str, Any] = data.get("tactics", {})
+                risk_level: str = data.get("risk_level", "low")
+                socketio.emit("tactics", {
+                    "tactics": tactics_dict,
+                    "risk_level": risk_level,
+                    "transcript_count": data.get("transcript_count", 0),
+                    "inference_time_ms": data.get("inference_time_ms", 0),
                     "timestamp": timestamp,
                 })
                 total_emitted += 1
-                logger.info("Emitted tactic: risk=%.2f", data.get("risk_score", 0.0))
+                logger.info(
+                    "Emitted tactics: risk=%s tactics=%s",
+                    risk_level,
+                    tactics_dict,
+                )
 
             else:
                 logger.debug("Unknown topic: %s", topic)
