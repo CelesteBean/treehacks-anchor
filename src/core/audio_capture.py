@@ -118,6 +118,10 @@ class AudioCapture:
         self._stop_event: threading.Event = threading.Event()
         self._publisher: zmq.Socket | None = None
 
+        # Counters for observability.
+        self.published_count: int = 0
+        self.callback_count: int = 0
+
         # Public flag consumers can poll.
         self.running: bool = False
 
@@ -172,6 +176,8 @@ class AudioCapture:
         """
         if status:
             logger.warning("Audio callback status: %s", status)
+
+        self.callback_count += 1
 
         # float32 → int16 (clamp to avoid wrap-around).
         clamped: np.ndarray = np.clip(indata, -1.0, 1.0)
@@ -260,6 +266,8 @@ class AudioCapture:
 
     def _publish_loop(self) -> None:
         """Drain the queue and publish messages until the stop event is set."""
+        logger.debug("_publish_loop started (publisher=%s)", self._publisher)
+
         while not self._stop_event.is_set():
             try:
                 payload = self._queue.get(timeout=0.1)
@@ -268,6 +276,34 @@ class AudioCapture:
 
             if self._publisher is not None:
                 self.bus.publish(self._publisher, topic="audio", data=payload)
+                self.published_count += 1
+
+                if self.published_count % 50 == 1:
+                    logger.debug(
+                        "_publish_loop: published=%d, queued=%d",
+                        self.published_count,
+                        self._queue.qsize(),
+                    )
+
+        # Drain any remaining items after stop is signalled.
+        remaining = 0
+        while not self._queue.empty():
+            try:
+                payload = self._queue.get_nowait()
+                if self._publisher is not None:
+                    self.bus.publish(self._publisher, topic="audio", data=payload)
+                    self.published_count += 1
+                    remaining += 1
+            except queue.Empty:
+                break
+
+        logger.info(
+            "_publish_loop exiting: total_published=%d (drained %d after stop), "
+            "callbacks=%d",
+            self.published_count,
+            remaining,
+            self.callback_count,
+        )
 
     def _resolve_device(self) -> int | None:
         """Match ``config.device_name`` to a PortAudio device index.
@@ -300,11 +336,10 @@ class AudioCapture:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import signal
     import sys
 
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
@@ -324,9 +359,19 @@ if __name__ == "__main__":
     bus = MessageBus()
     capture = AudioCapture(config=config, bus=bus)
 
-    # Subscribe to our own publisher to verify messages flow.
+    # ── FIX: bind the publisher FIRST, then create the subscriber. ──────
+    # The original code created the subscriber before the publisher existed,
+    # which meant the slow-joiner sleep was wasted (nothing to handshake
+    # with).  Now we:
+    #   1. Bind the PUB socket eagerly.
+    #   2. Inject it into the capture so start() reuses it.
+    #   3. Create the SUB socket (connects to the already-bound PUB).
+    #   4. Sleep for the ZeroMQ subscription handshake.
+    pub = bus.create_publisher(AUDIO_PORT)
+    capture._publisher = pub  # start() sees non-None, skips re-bind
     sub = bus.create_subscriber(ports=[AUDIO_PORT], topics=["audio"])
-    time.sleep(0.3)  # slow-joiner
+    time.sleep(0.5)  # slow-joiner: SUB ↔ PUB subscription handshake
+    logger.info("Publisher bound, subscriber connected, handshake done")
 
     chunks_received: int = 0
 
@@ -338,14 +383,19 @@ if __name__ == "__main__":
     timer_thread = threading.Thread(target=_timer_stop, daemon=True)
     timer_thread.start()
 
-    # Start capture in a background thread so we can read from the sub socket.
+    # Start capture in a background thread so we can read from the sub.
     capture_thread = threading.Thread(target=capture.start, daemon=True)
     capture_thread.start()
 
     print(f"\n=== Capturing {CAPTURE_SECONDS}s of audio ===")
     deadline = time.monotonic() + CAPTURE_SECONDS + 2.0  # extra buffer
 
-    while time.monotonic() < deadline and capture.running or chunks_received == 0:
+    # ── FIX: explicit parentheses for correct operator precedence. ──────
+    # Old:  (A and B) or C  — exited prematurely when capture.running
+    #       flipped to False, even if messages were still in flight.
+    # New:  A and (B or C)  — keep looping while within deadline AND
+    #       (capture is running OR we haven't received anything yet).
+    while time.monotonic() < deadline and (capture.running or chunks_received == 0):
         result = bus.receive(sub, timeout_ms=500)
         if result is None:
             continue
@@ -357,18 +407,36 @@ if __name__ == "__main__":
         samples = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32)
         rms = float(np.sqrt(np.mean(samples ** 2)))
         chunks_received += 1
-        logger.info(
-            "Chunk %3d | samples=%5d | RMS=%8.1f | ts=%s",
-            chunks_received,
-            len(samples),
-            rms,
-            data["timestamp"],
-        )
+
+        if chunks_received <= 3 or chunks_received % 20 == 0:
+            logger.info(
+                "Chunk %3d | samples=%5d | RMS=%8.1f | ts=%s",
+                chunks_received,
+                len(samples),
+                rms,
+                data["timestamp"],
+            )
 
     capture_thread.join(timeout=3)
     sub.close()
 
-    expected = int(CAPTURE_SECONDS * config.sample_rate / config.chunk_size)
-    print(f"\nChunks received : {chunks_received}")
-    print(f"Expected (approx): {expected}")
-    print("Smoke test", "PASSED" if chunks_received > 0 else "FAILED")
+    # -- 3. Verify results ---------------------------------------------------
+    published = capture.published_count
+    print(f"\nPublished {published} messages, Received {chunks_received} messages")
+    print(f"  Callbacks fired : {capture.callback_count}")
+
+    if published == 0:
+        print("ERROR: zero messages published — _publish_loop never ran or queue was empty")
+        sys.exit(1)
+
+    ratio = chunks_received / published if published > 0 else 0.0
+    print(f"  Receive ratio   : {ratio:.1%}")
+
+    if ratio < 0.80:
+        print(
+            f"FAIL: received only {ratio:.0%} of published "
+            f"(threshold: 80%)"
+        )
+        sys.exit(1)
+
+    print("PASS: audio capture → ZMQ publish → ZMQ subscribe pipeline verified")
