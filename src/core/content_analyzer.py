@@ -13,7 +13,7 @@ import re
 import threading
 import time
 from collections import deque
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional, Tuple
 
@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 TIER1_PHRASES = [
+    # Buying/obtaining gift cards for caller
+    "buy a gift card",
+    "buy the gift cards",
+    "buy gift cards",
+    "getting the gift cards",
+    "picking up the gift cards",
     # Reading gift card numbers/codes to caller
     "read you the numbers on the back",
     "read you the numbers",
@@ -70,6 +76,7 @@ TIER1_PHRASES = [
     "going to the bitcoin atm",
     "at the bitcoin atm",
     # Remote access
+    "download that software",
     "download that software for you",
     "installing the program you sent",
     "give you remote access",
@@ -132,7 +139,9 @@ BENIGN_PATTERNS = [
     r"\b(doctor|physician|hospital|pharmacy|prescription|appointment|checkup)\b",
     r"\b(tax preparer|accountant|financial advisor|my banker)\b",
     r"\b(birthday|nephew|niece|grandchild.*visit|family dinner)\b",
-    r"\b(gift card.*birthday|gift.*nephew|gift.*niece)\b",
+    r"\b(gift card.*birthday|gift.*nephew|gift.*niece|gift.*grandson|gift.*granddaughter)\b",
+    r"\bcredit card\b.{0,25}\b(purchase|checkout|payment|pay)\b",
+    r"\b(purchase|checkout|payment)\b.{0,25}\bcredit card\b",
     r"\b(just checking in|how are you|good to hear|catch up)\b",
     r"\b(lunch plans|dinner plans|coffee|visiting)\b",
 ]
@@ -150,6 +159,11 @@ class ProsodicsResult:
     hesitation_count: int = 0
     question_indicators: int = 0
     confusion_score: float = 0.0
+    wpm: float = 0.0
+    wpm_label: str = "—"
+    hesitation_label: str = "—"
+    uncertainty_count: int = 0
+    recent_matches: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -212,25 +226,67 @@ class ContentAnalyzer:
         category = self.scenario_categories[max_idx]
         return score, scenario, category
 
-    def _check_benign_context(self, transcript: str) -> bool:
-        """Strong benign context that could explain suspicious words."""
-        for pattern in self.benign_patterns:
+    def _check_benign_context(self, transcript: str) -> Tuple[bool, list[str]]:
+        """Strong benign context that could explain suspicious words.
+        Returns (is_benign, list of pattern regex strings that matched).
+        """
+        matched: list[str] = []
+        for i, pattern in enumerate(self.benign_patterns):
             if pattern.search(transcript):
-                return True
-        return False
+                matched.append(BENIGN_PATTERNS[i][:50])  # truncate long regex for log
+        return bool(matched), matched
 
     def _analyze_prosodics(self, transcript: str, duration_hint: float = 2.5) -> ProsodicsResult:
         words = transcript.split()
         word_count = len(words)
-        speech_rate = word_count / max(duration_hint, 0.1)
+        duration_min = max(duration_hint, 0.1) / 60.0
+        wpm = word_count / duration_min if duration_min > 0 else 0.0
+
+        # WPM label: 120-150 normal, >150 fast, <100 slow
+        if wpm > 150:
+            wpm_label = "fast"
+        elif wpm < 100 and wpm > 0:
+            wpm_label = "slow"
+        elif wpm > 0:
+            wpm_label = "normal"
+        else:
+            wpm_label = "—"
+
+        # Hesitation: fillers + "you know", "I mean"
         hesitation_markers = ["um", "uh", "er", "ah", "hmm", "well", "like"]
         hesitation_count = sum(
             1 for w in words if w.lower().strip(".,!?") in hesitation_markers
         )
+        t_lower = transcript.lower()
+        hesitation_count += t_lower.count(" you know ")
+        hesitation_count += t_lower.count(" i mean ")
+        hesitation_label = "elevated" if hesitation_count >= 2 else ("low" if hesitation_count > 0 else "—")
+
+        # Questions
         question_words = ["what", "why", "how", "when", "where", "who", "huh"]
         question_indicators = transcript.count("?") + sum(
             1 for w in words if w.lower().strip(".,!?") in question_words
         )
+
+        # Uncertainty phrases
+        uncertainty_phrases = [
+            "i think", "i guess", "maybe", "i'm not sure", "i don't know",
+            "is that right", "is that safe", "are you sure",
+        ]
+        uncertainty_count = sum(1 for p in uncertainty_phrases if p in t_lower)
+
+        # Recent matches for display (hesitations + uncertainty phrases found)
+        recent_matches: list[str] = []
+        for w in words:
+            wc = w.lower().strip(".,!?")
+            if wc in hesitation_markers and wc not in recent_matches:
+                recent_matches.append(wc)
+        for p in uncertainty_phrases:
+            if p in t_lower:
+                recent_matches.append(f'"{p}"')
+        recent_matches = recent_matches[:5]
+
+        speech_rate = word_count / max(duration_hint, 0.1)
         pause_indicators = transcript.count("...") + transcript.count("..")
         pause_ratio = min(pause_indicators / max(word_count, 1), 1.0)
         confusion_score = min(
@@ -243,6 +299,11 @@ class ContentAnalyzer:
             hesitation_count=hesitation_count,
             question_indicators=question_indicators,
             confusion_score=confusion_score,
+            wpm=wpm,
+            wpm_label=wpm_label,
+            hesitation_label=hesitation_label,
+            uncertainty_count=uncertainty_count,
+            recent_matches=recent_matches,
         )
 
     def _analyze_sentiment(self, transcript: str) -> SentimentResult:
@@ -296,6 +357,30 @@ class ContentAnalyzer:
 
         return tactics
 
+    def _infer_tactic_labels(
+        self, tactics: dict[str, float], tier1_matches: list[str],
+        matched_category: str, matched_scenario: str,
+    ) -> dict[str, str]:
+        """Return human-readable labels for elevated tactic bars."""
+        labels: dict[str, str] = {}
+        reasons = {
+            "financial": "gift card / payment request",
+            "authority": "official impersonation",
+            "fear": "threats or pressure",
+            "urgency": "time pressure",
+            "isolation": "secrecy / don't tell",
+        }
+        for k, v in tactics.items():
+            if v >= 0.5:
+                labels[k] = reasons.get(k, "matched")
+        if tier1_matches:
+            m_l = tier1_matches[0].lower()
+            if "gift card" in m_l or "bitcoin" in m_l:
+                labels["financial"] = labels.get("financial", "gift card payment request")
+            if "remote access" in m_l or "download" in m_l:
+                labels["isolation"] = labels.get("isolation", "remote access request")
+        return labels
+
     def analyze(self, transcript: str, duration_hint: float = 2.5) -> dict[str, Any]:
         """Run two-tier analysis. Returns dict compatible with dashboard."""
         start = time.perf_counter()
@@ -305,7 +390,7 @@ class ContentAnalyzer:
 
         tier1_matches = self._check_tier1(transcript)
         semantic_score, matched_scenario, matched_category = self._check_tier2(transcript)
-        is_benign = self._check_benign_context(transcript)
+        is_benign, benign_matched = self._check_benign_context(transcript)
 
         risk_factors: list[str] = []
         risk_score = 0.0
@@ -316,25 +401,28 @@ class ContentAnalyzer:
             for m in tier1_matches[:2]:
                 risk_factors.append(f"Tier 1: '{m}'")
 
-        # Tier 2: Semantic thresholds
+        # Tier 2: Semantic thresholds (0.40 catches "buy a gift card" at ~0.41)
         if semantic_score > 0.65:
             risk_score = max(risk_score, 0.6)
             risk_factors.append(
                 f"Tier 2: {matched_scenario[:60]}... (similarity {semantic_score:.2f})"
             )
-        elif semantic_score > 0.45:
+        elif semantic_score > 0.40:
             risk_score = max(risk_score, 0.35)
             risk_factors.append(
                 f"Tier 2: {matched_scenario[:50]}... (similarity {semantic_score:.2f})"
             )
 
-        # Benign context reduction
-        if is_benign and not tier1_matches and semantic_score < 0.5:
-            risk_score *= 0.5
-            risk_factors.append("(Reduced: benign context)")
+        # Benign context: override to low when strong benign signal (e.g. gift for birthday)
+        # Overrides even soft Tier1 like "buy a gift card" when context is "for grandson's birthday"
+        if is_benign:
+            risk_score = 0.0
+            risk_factors.append("(Benign: family/legitimate context)")
 
-        # Final level from score
-        if semantic_score < 0.3 and not tier1_matches:
+        # Final level from score (benign overrides tier1)
+        if is_benign:
+            risk_level = "low"
+        elif semantic_score < 0.3 and not tier1_matches:
             risk_level = "low"
         elif risk_score >= 0.6 or tier1_matches:
             risk_level = "high"
@@ -349,17 +437,72 @@ class ContentAnalyzer:
         tactics = self._infer_tactics(
             tier1_matches, semantic_score, matched_category, sentiment
         )
+        tactic_labels = self._infer_tactic_labels(
+            tactics, tier1_matches, matched_category, matched_scenario
+        )
+
+        # Detection trigger for dashboard
+        detection_trigger: dict[str, str] = {}
+        if tier1_matches:
+            detection_trigger = {
+                "phrase": tier1_matches[0],
+                "match_type": "Tier 1 (exact phrase)",
+                "category": matched_category.capitalize() + " Pressure",
+            }
+        elif semantic_score > 0.40:
+            detection_trigger = {
+                "phrase": matched_scenario[:50] + "…" if len(matched_scenario) > 50 else matched_scenario,
+                "match_type": f"Tier 2 (similarity {semantic_score:.2f})",
+                "category": matched_category.capitalize() + " Pressure",
+            }
 
         elapsed_ms = (time.perf_counter() - start) * 1000
-        logger.debug("Analysis %.1fms: %s (%.2f)", elapsed_ms, risk_level, risk_score)
 
+        # Debug logging: full analysis trace (only when --debug)
+        transcript_trunc = (transcript[:80] + "…") if len(transcript) > 80 else transcript
+        logger.debug(
+            "[ANALYZER] [ANALYZE] transcript=%r (%d words)",
+            transcript_trunc, len(transcript.split()),
+        )
+        logger.debug("[ANALYZER] [TIER1] matches: %s", tier1_matches)
+        logger.debug(
+            "[ANALYZER] [TIER2] best_score=%.3f scenario=%r",
+            semantic_score, (matched_scenario[:60] + "…") if len(matched_scenario) > 60 else matched_scenario,
+        )
+        logger.debug("[ANALYZER] [BENIGN] patterns_matched: %s", benign_matched)
+        logger.debug(
+            "[ANALYZER] [RESULT] risk_level=%s risk_score=%.2f factors=%s",
+            risk_level, risk_score, risk_factors,
+        )
+
+        # Important events at INFO (high/medium risk)
+        if risk_level in ("high", "medium") and logger.isEnabledFor(logging.INFO):
+            logger.info(
+                "[ANALYZER] DETECTION %s (%.2f): %r tier1=%s tier2=%.2f benign=%s",
+                risk_level.upper(), risk_score, transcript_trunc,
+                tier1_matches, semantic_score, is_benign,
+            )
+
+        prosodics_dict = asdict(prosodics)
+        speech_patterns = {
+            "wpm": int(prosodics_dict.get("wpm", 0)),
+            "wpm_label": prosodics_dict.get("wpm_label", "—"),
+            "hesitations": prosodics_dict.get("hesitation_count", 0),
+            "hesitation_label": prosodics_dict.get("hesitation_label", "—"),
+            "questions": prosodics_dict.get("question_indicators", 0),
+            "uncertainty": prosodics_dict.get("uncertainty_count", 0),
+            "recent": prosodics_dict.get("recent_matches", []),
+        }
         return {
             "risk_level": risk_level,
             "risk_score": risk_score,
             "confidence": confidence,
             "risk_factors": risk_factors,
             "tactics": tactics,
-            "prosodics": asdict(prosodics),
+            "tactic_labels": tactic_labels,
+            "detection_trigger": detection_trigger,
+            "prosodics": prosodics_dict,
+            "speech_patterns": speech_patterns,
             "sentiment": asdict(sentiment),
             "stress_score": prosodics.confusion_score,
             "inference_time_ms": elapsed_ms,
@@ -447,11 +590,12 @@ class ContentAnalyzerService:
         if len(words) < self.min_words:
             return
         self._last_analysis = now
-        result = self._analyzer.analyze(combined)
+        result = self._analyzer.analyze(combined, duration_hint=self.analysis_interval)
         self._accumulated.clear()
         ts = datetime.now(timezone.utc).isoformat()
         stress_data = {
             "stress_score": result["stress_score"],
+            "speech_patterns": result["speech_patterns"],
             "emotions": {
                 "arousal": result["stress_score"],
                 "valence": max(0, (result["sentiment"]["compound"] + 1) / 2),
@@ -463,7 +607,10 @@ class ContentAnalyzerService:
         self.bus.publish(self._stress_pub, "stress", stress_data)
         tactic_data = {
             "tactics": result["tactics"],
+            "tactic_labels": result["tactic_labels"],
+            "detection_trigger": result["detection_trigger"],
             "risk_level": result["risk_level"],
+            "risk_score": result["risk_score"],
             "risk_factors": result["risk_factors"],
             "transcript": combined,
             "word_count": len(words),
@@ -472,8 +619,12 @@ class ContentAnalyzerService:
         }
         self.bus.publish(self._tactic_pub, "tactics", tactic_data)
         logger.info(
-            "Published risk=%s (%.2f) %d words in %.0fms",
+            "[ANALYZER] Published risk=%s (%.2f) %d words in %.0fms",
             result["risk_level"], result["risk_score"], len(words), result["inference_time_ms"],
+        )
+        logger.debug(
+            "[ANALYZER] [PUBLISH] transcript=%r port=%d",
+            (combined[:80] + "…") if len(combined) > 80 else combined, TACTIC_PORT,
         )
 
 
@@ -483,7 +634,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Content Analyzer — two-tier scam detection")
     parser.add_argument("--min-words", type=int, default=8)
     parser.add_argument("--interval", type=float, default=5.0)
-    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--debug", "--verbose", action="store_true", dest="debug")
     args = parser.parse_args()
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)

@@ -17,3 +17,4 @@ vaderSentiment>=3.3.2
 sentence-transformers>=2.2.0
 scikit-learn>=1.0.0
 piper-tts>=1.2.0
+psutil>=5.9.0

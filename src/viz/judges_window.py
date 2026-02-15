@@ -50,6 +50,7 @@ from flask_socketio import SocketIO
 from src.core.message_bus import (
     AUDIO_PORT,
     STRESS_PORT,
+    SYSTEM_PORT,
     TACTIC_PORT,
     TRANSCRIPT_PORT,
     MessageBus,
@@ -388,6 +389,63 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     line-height: 1.5;
   }
 
+  /* ── Speech patterns ─────────────────────────────────────────── */
+  .speech-patterns-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.9rem;
+  }
+  .pattern-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pattern-label {
+    width: 90px;
+    color: var(--dim);
+  }
+  .pattern-tag {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    color: var(--dim);
+  }
+  .pattern-tag.elevated { background: rgba(253,203,110,0.2); color: var(--warn); }
+  .recent-matches {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+  .recent-label { font-weight: 500; }
+
+  /* ── Detection trigger & risk factors ─────────────────────────── */
+  .detection-trigger {
+    display: none;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: rgba(225,112,85,0.15);
+    border: 1px solid rgba(225,112,85,0.4);
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+  .detection-trigger.visible { display: block; }
+  .detection-trigger .trigger-phrase { font-weight: 600; color: var(--danger); }
+  .detection-trigger .trigger-meta { font-size: 0.75rem; color: var(--dim); margin-top: 4px; }
+  .risk-factors-panel {
+    display: none;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    max-height: 80px;
+    overflow-y: auto;
+  }
+  .risk-factors-panel.visible { display: block; }
+  .risk-factors-panel ul { margin: 0; padding-left: 18px; }
+
   /* ── Risk badge ─────────────────────────────────────────────── */
   .risk-badge {
     font-size: 1.5rem;
@@ -469,14 +527,20 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 
   /* ── Main layout: fixed grid, script panel 300px left ───────────── */
   .dashboard-container {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    grid-template-rows: 1fr;
+    display: flex;
     flex: 1;
     min-height: 0;
     overflow: hidden;
     gap: 0;
     padding: 0;
+  }
+  #tab-pipeline.dashboard-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: 1fr;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
   .script-panel {
     grid-row: 1 / -1;
@@ -596,6 +660,70 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     color: var(--dim);
     border-top: 1px solid var(--border);
   }
+
+  /* ── Tab navigation ───────────────────────────────────────────── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 14px 24px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    color: var(--dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: #76B900;
+    border-bottom-color: #76B900;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { flex: 1; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
+  .tab-panel.active#tab-pipeline { display: grid; }
+  .tab-panel.active#tab-system { display: flex; }
+
+  /* ── System Performance tab ───────────────────────────────────── */
+  #tab-system { overflow-y: auto; overflow-x: hidden; }
+  .perf-header { font-size: 1.2rem; color: #76B900; margin-bottom: 16px; padding: 0 16px; flex-shrink: 0; }
+  .metric-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 16px 16px; flex-shrink: 0; }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+    min-width: 0;
+  }
+  .metric-card .label { font-size: 0.7rem; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+  .metric-card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); }
+  .metric-card .sub { font-size: 0.75rem; color: var(--dim); margin-top: 2px; }
+  .metric-card .value.warn { color: var(--warn); }
+  .metric-card .value.danger { color: var(--danger); }
+  .perf-charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 0 16px; min-height: 180px; max-height: 380px; flex-shrink: 1; }
+  .perf-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 0; overflow: hidden; }
+  .perf-chart-card h3 { font-size: 0.8rem; color: var(--dim); margin-bottom: 8px; flex-shrink: 0; }
+  .perf-chart-wrap { height: 140px; min-height: 140px; max-height: 140px; overflow: hidden; position: relative; }
+  .perf-chart { width: 100% !important; height: 140px !important; max-height: 140px; }
+  .process-bars { padding: 16px; flex-shrink: 0; }
+  .process-bars h3 { font-size: 0.8rem; color: var(--dim); margin-bottom: 10px; }
+  .process-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .process-row .name { width: 140px; font-size: 0.85rem; }
+  .process-row .bar-bg { flex: 1; min-width: 0; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
+  .process-row .bar-fill { height: 100%; border-radius: 8px; transition: width 0.3s; }
+  .process-row .mb { width: 70px; font-size: 0.8rem; color: var(--dim); text-align: right; }
+  .latency-panel { padding: 16px; }
+  .latency-panel h3 { font-size: 0.8rem; color: var(--dim); margin-bottom: 10px; }
+  .latency-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.9rem; }
+  .latency-row .stage { color: var(--dim); }
+  .latency-row .ms { font-weight: 600; color: var(--accent); }
 </style>
 </head>
 <body>
@@ -619,7 +747,13 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   </div>
 </div>
 
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="pipeline">Pipeline</button>
+  <button class="tab-btn" data-tab="system">System Performance</button>
+</nav>
+
 <div class="main-content dashboard-container">
+  <div id="tab-pipeline" class="tab-panel active dashboard-grid">
   <aside class="script-panel">
     <div class="script-selector">
       <div class="scenario-type-badge" id="scenario-type-badge" style="display:none;"></div>
@@ -678,14 +812,23 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 
   <!-- Stress -->
   <div class="card" id="stress-card">
-    <h2>Vocal Stress</h2>
-    <div class="score-big score-low" id="stress-score">&mdash;</div>
-    <div class="indicators" id="stress-indicators">Waiting for stress data&hellip;</div>
+    <h2>Speech Patterns</h2>
+    <div class="speech-patterns-grid" id="speech-patterns">
+      <div class="pattern-row"><span class="pattern-label">Speech Rate:</span><span id="wpm-value">&mdash;</span> <span id="wpm-label" class="pattern-tag"></span></div>
+      <div class="pattern-row"><span class="pattern-label">Hesitations:</span><span id="hesitation-value">&mdash;</span> <span id="hesitation-tag" class="pattern-tag"></span></div>
+      <div class="pattern-row"><span class="pattern-label">Questions:</span><span id="question-value">&mdash;</span></div>
+      <div class="pattern-row"><span class="pattern-label">Uncertainty:</span><span id="uncertainty-value">&mdash;</span> phrase(s)</div>
+    </div>
+    <div class="recent-matches" id="recent-matches">
+      <span class="recent-label">Recent:</span> <span id="recent-list">—</span>
+    </div>
   </div>
 
   <!-- Tactic -->
   <div class="card" id="tactic-card">
     <h2>Scam Tactic Detection</h2>
+    <div class="detection-trigger" id="detection-trigger"></div>
+    <div class="risk-factors-panel" id="risk-factors-panel"></div>
     <div class="risk-badge risk-low" id="risk-badge">&mdash;</div>
     <div class="tactic-bars" id="tactic-bars">
       <div class="waiting-msg" id="tactic-waiting">Waiting for tactic data&hellip;</div>
@@ -694,9 +837,37 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   </div>
 </div>
   </div>
+  </div><!-- /tab-pipeline -->
+
+  <div id="tab-system" class="tab-panel" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:auto;">
+    <h2 class="perf-header">Jetson Orin Nano &mdash; Edge Performance</h2>
+    <div class="metric-cards" id="perf-cards">
+      <div class="metric-card"><div class="label">CPU</div><div class="value" id="perf-cpu">&mdash;</div><div class="sub" id="perf-cpu-temp">&mdash;</div></div>
+      <div class="metric-card"><div class="label">RAM</div><div class="value" id="perf-ram">&mdash;</div><div class="sub" id="perf-ram-detail">&mdash;</div></div>
+      <div class="metric-card"><div class="label">GPU</div><div class="value" id="perf-gpu">&mdash;</div><div class="sub" id="perf-gpu-temp">&mdash;</div></div>
+      <div class="metric-card"><div class="label">Power</div><div class="value" id="perf-power">&mdash;</div><div class="sub" id="perf-power-mode">&mdash;</div></div>
+    </div>
+    <div class="perf-charts">
+      <div class="perf-chart-card"><h3>CPU Usage (60s)</h3><div class="perf-chart-wrap"><canvas class="perf-chart" id="chart-cpu"></canvas></div></div>
+      <div class="perf-chart-card"><h3>Memory (60s)</h3><div class="perf-chart-wrap"><canvas class="perf-chart" id="chart-mem"></canvas></div></div>
+      <div class="perf-chart-card"><h3>Power (60s)</h3><div class="perf-chart-wrap"><canvas class="perf-chart" id="chart-power"></canvas></div></div>
+      <div class="perf-chart-card"><h3>Inference Latency (60s)</h3><div class="perf-chart-wrap"><canvas class="perf-chart" id="chart-latency"></canvas></div></div>
+    </div>
+    <div class="process-bars">
+      <h3>Process Memory Usage</h3>
+      <div id="process-bars-container"><div class="waiting-msg">Waiting for system metrics&hellip;</div></div>
+      <div class="latency-panel" style="margin-top:12px;">
+        <h3>Pipeline Latency (avg last 10)</h3>
+        <div class="latency-row"><span class="stage">Audio &rarr; Whisper</span><span class="ms" id="lat-whisper">&mdash;</span></div>
+        <div class="latency-row"><span class="stage">Whisper &rarr; Analyzer</span><span class="ms" id="lat-analyzer">&mdash;</span></div>
+        <div class="latency-row"><span class="stage">Analyzer &rarr; TTS</span><span class="ms" id="lat-tts">&mdash;</span></div>
+        <div class="latency-row"><span class="stage">End-to-end</span><span class="ms" id="lat-e2e">&mdash;</span></div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Socket.IO client -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
 <script>
 (function() {
@@ -713,6 +884,94 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   const dot = document.getElementById("status-dot");
   socket.on("connect",    () => { dot.classList.add("connected"); });
   socket.on("disconnect", () => { dot.classList.remove("connected"); });
+
+  /* ── Tab switching ─────────────────────────────────────────────── */
+  document.querySelectorAll(".tab-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      const tab = this.dataset.tab;
+      document.querySelectorAll(".tab-btn").forEach(function(b) { b.classList.remove("active"); });
+      document.querySelectorAll(".tab-panel").forEach(function(p) {
+        p.style.display = "none";
+        p.classList.remove("active");
+      });
+      this.classList.add("active");
+      var panel = document.getElementById("tab-" + tab);
+      if (panel) {
+        panel.style.display = tab === "pipeline" ? "grid" : "flex";
+        panel.classList.add("active");
+      }
+    });
+  });
+
+  /* ── System metrics: charts (60-point rolling) ──────────────────── */
+  const HISTORY = 60;
+  const cpuHistory = []; const memHistory = []; const powerHistory = []; const latencyHistory = [];
+  function ensureChart(id, label, color, unit) {
+    const el = document.getElementById(id);
+    if (!el || el.chart) return el.chart;
+    const ctx = el.getContext("2d");
+    el.chart = new Chart(ctx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: label, data: [], borderColor: color, backgroundColor: color + "20", fill: true, tension: 0.3 }] },
+      options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { display: false }, y: { min: 0, suggestedMax: 100 } } }
+    });
+    return el.chart;
+  }
+  function updateChart(chart, history, label, unit) {
+    if (!chart) return;
+    chart.data.labels = history.map(function(_, i) { return i; });
+    chart.data.datasets[0].data = history;
+    chart.data.datasets[0].label = label;
+    chart.update("none");
+  }
+  socket.on("system_metrics", function(data) {
+    var cpu = (data.cpu || {}).percent;
+    var mem = (data.memory || {}).percent;
+    var pw = (data.power || {}).current_w;
+    var lat = (data.pipeline || {}).e2e_ms;
+    if (typeof cpu === "number") { cpuHistory.push(cpu); if (cpuHistory.length > HISTORY) cpuHistory.shift(); }
+    if (typeof mem === "number") { memHistory.push(mem); if (memHistory.length > HISTORY) memHistory.shift(); }
+    if (typeof pw === "number") { powerHistory.push(pw); if (powerHistory.length > HISTORY) powerHistory.shift(); }
+    if (typeof lat === "number") { latencyHistory.push(lat); if (latencyHistory.length > HISTORY) latencyHistory.shift(); }
+    document.getElementById("perf-cpu").textContent = cpu != null ? cpu.toFixed(1) + "%" : "—";
+    document.getElementById("perf-cpu").className = "value" + (cpu > 80 ? " danger" : cpu > 60 ? " warn" : "");
+    document.getElementById("perf-cpu-temp").textContent = (data.cpu || {}).temp_c != null ? (data.cpu.temp_c + "°C") : "—";
+    var usedMb = (data.memory || {}).used_mb; var totalMb = (data.memory || {}).total_mb;
+    document.getElementById("perf-ram").textContent = usedMb != null ? (usedMb / 1024).toFixed(2) + " GB" : "—";
+    document.getElementById("perf-ram-detail").textContent = totalMb != null ? "/ " + (totalMb / 1024).toFixed(2) + " GB (" + (mem || 0).toFixed(0) + "%)" : "—";
+    var gpu = (data.gpu || {}).percent;
+    document.getElementById("perf-gpu").textContent = gpu != null ? gpu + "%" : "—";
+    document.getElementById("perf-gpu-temp").textContent = (data.gpu || {}).temp_c != null ? (data.gpu.temp_c + "°C") : "—";
+    document.getElementById("perf-power").textContent = pw != null ? pw.toFixed(2) + " W" : "—";
+    document.getElementById("perf-power-mode").textContent = (data.power || {}).mode || "—";
+    var pp = (data.memory || {}).per_process_mb || {};
+    var total = (data.memory || {}).total_mb || 1;
+    var container = document.getElementById("process-bars-container");
+    if (typeof pp === "object" && Object.keys(pp).length) {
+      var names = { audio_capture: "audio_capture", speech_recognition: "speech_recognition (Whisper)", content_analyzer: "content_analyzer", audio_intervention: "audio_intervention (Piper)", judges_window: "judges_window" };
+      var sumMb = 0;
+      var html = "";
+      for (var k in names) {
+        var mb = pp[k] || 0;
+        sumMb += mb;
+        var pct = total > 0 ? (mb / total) * 100 : 0;
+        html += "<div class=\"process-row\"><span class=\"name\">" + names[k] + "</span><div class=\"bar-bg\"><div class=\"bar-fill\" style=\"width:" + pct + "%;background:#76B900\"></div></div><span class=\"mb\">" + mb.toFixed(0) + " MB</span></div>";
+      }
+      html += "<div class=\"latency-row\" style=\"margin-top:8px;\"><span class=\"stage\">Total Pipeline</span><span class=\"ms\">" + sumMb.toFixed(0) + " MB / " + (total / 1024).toFixed(2) + " GB</span></div>";
+      container.innerHTML = html;
+    }
+    var pl = data.pipeline || {};
+    document.getElementById("lat-whisper").textContent = pl.whisper_ms != null ? pl.whisper_ms + "ms" : "—";
+    document.getElementById("lat-analyzer").textContent = pl.analyzer_ms != null ? pl.analyzer_ms + "ms" : "—";
+    document.getElementById("lat-tts").textContent = pl.tts_ms != null ? pl.tts_ms + "ms" : "—";
+    document.getElementById("lat-e2e").textContent = pl.e2e_ms != null ? "~" + pl.e2e_ms + "ms" : "—";
+    if (typeof Chart !== "undefined") {
+      updateChart(ensureChart("chart-cpu", "CPU %", "#76B900"), cpuHistory, "CPU %");
+      updateChart(ensureChart("chart-mem", "RAM %", "#5BBFB3"), memHistory, "RAM %");
+      updateChart(ensureChart("chart-power", "Power W", "#FDCB6E"), powerHistory, "Power W");
+      updateChart(ensureChart("chart-latency", "E2E ms", "#74b9ff"), latencyHistory, "Latency ms");
+    }
+  });
 
   /* ── Script selector & teleprompter ────────────────────────────── */
   const SCRIPTS = {
@@ -1031,23 +1290,28 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
                         pct > 40 ? "var(--warn)" : "var(--accent)";
   });
 
-  /* ── Stress ──────────────────────────────────────────────────── */
-  const stressScoreEl = document.getElementById("stress-score");
-  const stressIndEl   = document.getElementById("stress-indicators");
+  /* ── Stress (Speech Patterns) ──────────────────────────────────── */
+  const wpmEl = document.getElementById("wpm-value");
+  const wpmLabelEl = document.getElementById("wpm-label");
+  const hesitationEl = document.getElementById("hesitation-value");
+  const hesitationTagEl = document.getElementById("hesitation-tag");
+  const questionEl = document.getElementById("question-value");
+  const uncertaintyEl = document.getElementById("uncertainty-value");
+  const recentListEl = document.getElementById("recent-list");
 
   socket.on("stress", (data) => {
     markConnected("stress");
-    const score = data.score != null ? data.score : 0;
-    stressScoreEl.textContent = score.toFixed(2);
-    stressScoreEl.className = "score-big " +
-      (score > 0.7 ? "score-high" : score > 0.4 ? "score-medium" : "score-low");
-
-    const parts = [];
-    if (data.arousal != null)    parts.push("arousal: " + data.arousal.toFixed(2));
-    if (data.valence != null)    parts.push("valence: " + data.valence.toFixed(2));
-    if (data.dominance != null)  parts.push("dominance: " + data.dominance.toFixed(2));
-    if (data.confidence != null) parts.push("confidence: " + data.confidence.toFixed(2));
-    stressIndEl.textContent = parts.length > 0 ? parts.join("  \u00b7  ") : "No indicators";
+    const sp = data.speech_patterns || {};
+    wpmEl.textContent = sp.wpm != null ? sp.wpm + " WPM" : "—";
+    wpmLabelEl.textContent = sp.wpm_label || "";
+    wpmLabelEl.className = "pattern-tag " + (sp.wpm_label === "fast" || sp.wpm_label === "slow" ? "elevated" : "");
+    hesitationEl.textContent = sp.hesitations != null ? sp.hesitations : "—";
+    hesitationTagEl.textContent = sp.hesitation_label || "";
+    hesitationTagEl.className = "pattern-tag " + (sp.hesitation_label === "elevated" ? "elevated" : "");
+    questionEl.textContent = sp.questions != null ? sp.questions : "—";
+    uncertaintyEl.textContent = sp.uncertainty != null ? sp.uncertainty : "—";
+    const recent = sp.recent || [];
+    recentListEl.textContent = recent.length > 0 ? recent.join(", ") : "—";
   });
 
   /* ── Tactic ──────────────────────────────────────────────────── */
@@ -1055,9 +1319,12 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   const tacticBarsEl = document.getElementById("tactic-bars");
   const tacticMetaEl = document.getElementById("tactic-meta");
   const tacticCard   = document.getElementById("tactic-card");
+  const detectionTriggerEl = document.getElementById("detection-trigger");
+  const riskFactorsPanelEl = document.getElementById("risk-factors-panel");
 
   function tacticBarColor(v) {
-    return v > 0.7 ? "var(--danger)" : v > 0.4 ? "var(--warn)" : "var(--accent)";
+    var pct = v * 100;
+    return pct >= 60 ? "var(--danger)" : pct >= 30 ? "var(--warn)" : "var(--success)";
   }
 
   socket.on("tactics", (data) => {
@@ -1074,6 +1341,25 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
         }
       }, 2000);
     }
+    /* ── Detection trigger ──────────────────────────────────── */
+    var trigger = data.detection_trigger || {};
+    if (trigger.phrase) {
+      detectionTriggerEl.className = "detection-trigger visible";
+      detectionTriggerEl.innerHTML = "⚠️ DETECTED: <span class=\"trigger-phrase\">\"" + escapeHtml(trigger.phrase) + "\"</span>" +
+        "<div class=\"trigger-meta\">Match Type: " + escapeHtml(trigger.match_type || "") + " · Category: " + escapeHtml(trigger.category || "") + "</div>";
+    } else {
+      detectionTriggerEl.className = "detection-trigger";
+      detectionTriggerEl.innerHTML = "";
+    }
+    /* ── Risk factors ────────────────────────────────────────── */
+    var factors = data.risk_factors || [];
+    if (factors.length > 0) {
+      riskFactorsPanelEl.className = "risk-factors-panel visible";
+      riskFactorsPanelEl.innerHTML = "<strong>Risk Factors:</strong><ul>" + factors.map(function(f) { return "<li>" + escapeHtml(f) + "</li>"; }).join("") + "</ul>";
+    } else {
+      riskFactorsPanelEl.className = "risk-factors-panel";
+      riskFactorsPanelEl.innerHTML = "";
+    }
     /* ── Risk badge ─────────────────────────────────────────── */
     const risk = (data.risk_level || "low").toLowerCase();
     riskBadgeEl.textContent = risk.toUpperCase();
@@ -1081,11 +1367,13 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 
     /* ── Tactic bars ────────────────────────────────────────── */
     const tactics = data.tactics || {};
+    const tacticLabels = data.tactic_labels || {};
     tacticBarsEl.innerHTML = "";
     var keys = ["urgency", "authority", "fear", "isolation", "financial"];
     keys.forEach(function(key) {
       var val = tactics[key] != null ? tactics[key] : 0;
       var pct = (val * 100).toFixed(0);
+      var barLabel = tacticLabels[key];
 
       var row   = document.createElement("div");
       row.className = "tactic-bar-row";
@@ -1109,6 +1397,14 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
       row.appendChild(label);
       row.appendChild(bg);
       row.appendChild(pctEl);
+      if (barLabel && val >= 0.3) {
+        var reasonEl = document.createElement("span");
+        reasonEl.className = "tactic-bar-reason";
+        reasonEl.textContent = " ← " + barLabel;
+        reasonEl.style.fontSize = "0.7rem";
+        reasonEl.style.color = "var(--dim)";
+        row.appendChild(reasonEl);
+      }
       tacticBarsEl.appendChild(row);
     });
 
@@ -1196,7 +1492,7 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
     if bus is None:
         bus = MessageBus()
 
-    all_ports = [AUDIO_PORT, TRANSCRIPT_PORT, STRESS_PORT, TACTIC_PORT]
+    all_ports = [AUDIO_PORT, TRANSCRIPT_PORT, STRESS_PORT, TACTIC_PORT, SYSTEM_PORT]
     sub = bus.create_subscriber(ports=all_ports)
 
     # ── FIX: slow-joiner sleep ──────────────────────────────────────
@@ -1276,8 +1572,11 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
                 )
 
             elif topic == "stress":
-                # stress_detector publishes: stress_score, emotions{}, confidence
+                # content_analyzer publishes: stress_score, speech_patterns{}, emotions{}, confidence
                 stress_score: float = float(data.get("stress_score", 0.0))
+                speech_patterns: dict[str, Any] = data.get("speech_patterns", {})
+                if not isinstance(speech_patterns, dict):
+                    speech_patterns = {}
                 emotions: dict[str, Any] = data.get("emotions", {})
                 if not isinstance(emotions, dict):
                     logger.warning(
@@ -1293,6 +1592,7 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
 
                 socketio.emit("stress", {
                     "score": stress_score,
+                    "speech_patterns": speech_patterns,
                     "arousal": arousal,
                     "valence": valence,
                     "dominance": dominance,
@@ -1305,8 +1605,14 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
             elif topic == "tactics":
                 tactics_dict: dict[str, Any] = data.get("tactics", {})
                 risk_level: str = data.get("risk_level", "low")
+                tactic_labels: dict[str, str] = data.get("tactic_labels", {}) or {}
+                detection_trigger: dict[str, str] = data.get("detection_trigger", {}) or {}
+                risk_factors: list[str] = data.get("risk_factors", []) or []
                 socketio.emit("tactics", {
                     "tactics": tactics_dict,
+                    "tactic_labels": tactic_labels,
+                    "detection_trigger": detection_trigger,
+                    "risk_factors": risk_factors,
                     "risk_level": risk_level,
                     "transcript_count": data.get("transcript_count"),
                     "word_count": data.get("word_count"),
@@ -1319,6 +1625,11 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
                     risk_level,
                     tactics_dict,
                 )
+
+            elif topic == "system":
+                data = envelope.get("data", {})
+                socketio.emit("system_metrics", data)
+                total_emitted += 1
 
             else:
                 logger.debug("Unknown topic: %s", topic)

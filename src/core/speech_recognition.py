@@ -306,22 +306,33 @@ class SpeechRecognizer:
             # Transcribe when we have enough audio.
             if self._buffer_ready():
                 audio = self._flush_buffer()
+                chunk_count = int(len(audio) / (self._sample_rate * 0.1))  # ~10 chunks/sec
 
                 t_start = time.perf_counter()
                 transcript = self._transcribe(audio)
                 latency_ms = (time.perf_counter() - t_start) * 1000.0
 
+                text = transcript["text"].strip() if transcript["text"] else ""
+                text_preview = (text[:80] + "…") if len(text) > 80 else text
+                text_preview = text_preview or "(silence)"
+
                 logger.info(
-                    "Transcribed %.2fs audio in %.0fms: %s",
+                    "[SPEECH] Transcribed %.2fs audio in %.0fms: %s",
                     len(audio) / self._sample_rate,
                     latency_ms,
-                    transcript["text"][:80] if transcript["text"] else "(silence)",
+                    text_preview,
+                )
+                logger.debug(
+                    "[SPEECH] [TRANSCRIBE] %r (from ~%d chunks)",
+                    text_preview, chunk_count,
                 )
 
                 # Publish.
                 transcript["timestamp"] = datetime.now(timezone.utc).isoformat()
                 transcript["is_final"] = True  # Batch transcripts are always final (tactic_inference requires this)
+                transcript["inference_time_ms"] = round(latency_ms, 1)
                 self.bus.publish(self._publisher, topic="transcript", data=transcript)
+                logger.debug("[SPEECH] [PUBLISH] sent to port %d", TRANSCRIPT_PORT)
 
 
 # ---------------------------------------------------------------------------
@@ -329,11 +340,16 @@ class SpeechRecognizer:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import argparse
     import subprocess
     import sys
 
+    parser = argparse.ArgumentParser(description="Speech recognition — Whisper on GPU")
+    parser.add_argument("--debug", "--verbose", action="store_true", dest="debug")
+    args = parser.parse_args()
+
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG if args.debug else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 

@@ -45,6 +45,9 @@ STRESS_PORT: int = 5557
 TACTIC_PORT: int = 5558
 """Detected scam-tactic classifications."""
 
+SYSTEM_PORT: int = 5559
+"""System metrics (CPU, RAM, GPU, power, pipeline latency) from system_monitor."""
+
 # ---------------------------------------------------------------------------
 # Module-level logger
 # ---------------------------------------------------------------------------

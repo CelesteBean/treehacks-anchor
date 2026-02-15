@@ -42,16 +42,16 @@ INTERVENTION_TEMPLATES = {
         "Real companies never request gift card payments. Please hang up."
     ),
     "government_impersonation": (
-        "Stop. Someone claiming to be from the {authority} is demanding payment. "
-        "The real {authority} will never call demanding immediate money. This is a scam."
+        "Stop. This caller claims to be from {authority}. "
+        "The real {authority} never demands immediate payment by phone. Please hang up."
     ),
     "grandparent_scam": (
-        "Before sending money for an emergency, please call your family member "
+        "Before sending money for an emergency, call your family member "
         "directly on their real phone number to verify."
     ),
     "tech_support": (
-        "Warning. Someone is asking you to download software or give remote access "
-        "to your computer. This is a common scam. Do not proceed."
+        "Warning. Someone is asking you to download software or give remote access. "
+        "This is a common scam. Do not proceed."
     ),
     "wire_transfer": (
         "Stop. Someone is asking you to wire money or use {payment_method}. "
@@ -240,7 +240,7 @@ class AudioIntervention:
 
         entities: dict[str, str] = {
             "payment_method": "gift cards",
-            "authority": "the government",
+            "authority": "government",  # Avoid "the the government" in templates
         }
 
         for payment in ENTITY_PATTERNS["payment_method"]:
@@ -256,7 +256,9 @@ class AudioIntervention:
         return entities
 
     def should_intervene(self, analysis: dict[str, Any]) -> bool:
-        if analysis.get("risk_level") != "high":
+        risk_level = (analysis.get("risk_level") or "low").lower()
+        # Trigger on "medium" OR "high" (previously only "high")
+        if risk_level not in ("medium", "high"):
             return False
 
         now = time.time()
@@ -284,11 +286,19 @@ class AudioIntervention:
             logger.warning("Template fill failed for %s, using generic", e)
             warning_text = INTERVENTION_TEMPLATES["generic_high_risk"]
 
-        logger.info("INTERVENTION [%s]: %s...", scam_type, warning_text[:60])
+        logger.info(
+            "[INTERVENTION] INTERVENTION [%s]: %s...",
+            scam_type, warning_text[:60],
+        )
+        logger.debug(
+            "[INTERVENTION] [TTS] generating: %r",
+            (warning_text[:80] + "…") if len(warning_text) > 80 else warning_text,
+        )
 
         try:
             output_path = "/tmp/anchor_intervention.wav"
             self._synthesize_to_file(warning_text, output_path)
+            logger.debug("[INTERVENTION] [PLAY] playing on %s", self.audio_device)
             self._play_audio(output_path)
             self.last_intervention_time = time.time()
         except Exception as e:
@@ -348,6 +358,7 @@ class AudioInterventionService:
             self._subscriber = None
 
     def _main_loop(self) -> None:
+        msg_count = 0
         while not self._stop.is_set():
             result = self.bus.receive(self._subscriber, timeout_ms=500)
             if result is None:
@@ -356,7 +367,34 @@ class AudioInterventionService:
             topic, envelope = result
             data = envelope.get("data", {})
             if not isinstance(data, dict):
+                logger.warning("Received non-dict data for topic=%s: %s", topic, type(data))
                 continue
+
+            msg_count += 1
+            risk_level = (data.get("risk_level") or "low").lower()
+            risk_score = data.get("risk_score", 0.0)
+            transcript_preview = ((data.get("transcript") or "")[:80] + "…") if len(data.get("transcript") or "") > 80 else (data.get("transcript") or "")
+
+            logger.info(
+                "[INTERVENTION] [RECV] msg #%d risk=%s score=%.2f transcript=%r",
+                msg_count, risk_level, risk_score, transcript_preview,
+            )
+
+            will_intervene = self._intervention.should_intervene(data)
+            if not will_intervene:
+                reason = "risk_level not medium/high"
+                if risk_level in ("medium", "high"):
+                    reason = "cooldown active"
+                logger.info(
+                    "[INTERVENTION] [DECIDE] will_intervene=False reason=%s",
+                    reason,
+                )
+            else:
+                scam_type = self._intervention.detect_scam_type(data)
+                logger.info(
+                    "[INTERVENTION] [DECIDE] will_intervene=True scam_type=%s cooldown_active=False",
+                    scam_type,
+                )
 
             self._intervention.intervene(data)
 
