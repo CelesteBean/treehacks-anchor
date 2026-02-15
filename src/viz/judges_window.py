@@ -150,21 +150,29 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 
   /* ── Header ───────────────────────────────────────────────────── */
   header {
-    text-align: center;
-    padding: 24px 16px 12px;
+    padding: 12px 16px 8px;
     border-bottom: 1px solid var(--border);
   }
+  .header-main-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
   header h1 {
-    font-size: 2rem;
+    font-size: 1.6rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     color: var(--accent);
-    margin-bottom: 4px;
+    margin-bottom: 0;
   }
   header p {
     font-size: 0.875rem;
     color: var(--dim);
     font-weight: 400;
+    margin-top: 4px;
+    text-align: left;
   }
   .status-dot {
     display: inline-block;
@@ -203,11 +211,9 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   /* ── Component status panel ───────────────────────────────────── */
   .status-panel {
     display: flex;
-    justify-content: center;
-    gap: 20px;
-    padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.2);
-    border-bottom: 1px solid var(--border);
+    align-items: center;
+    gap: 12px;
+    padding: 0;
     flex-wrap: wrap;
   }
   .status-item {
@@ -231,11 +237,14 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 
   /* ── Ready / Timer banner ─────────────────────────────────────── */
   .ready-banner {
-    text-align: center;
-    padding: 14px;
-    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    text-align: left;
+    padding: 4px 10px;
+    font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.3s;
+    border-radius: 999px;
   }
   .ready-banner.starting {
     color: var(--dim);
@@ -244,7 +253,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .ready-banner.ready {
     color: var(--success);
     background: rgba(0, 184, 148, 0.25);
-    font-size: 1.4rem;
+    font-size: 0.95rem;
     font-weight: 600;
     animation: pulse-ready 2s ease-in-out infinite;
   }
@@ -266,11 +275,12 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     50%     { opacity: 0.85; }
   }
   .timer-bar {
-    width: 100%;
+    width: 100px;
     height: 6px;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 3px;
-    margin-top: 8px;
+    margin-top: 0;
+    margin-left: 8px;
     overflow: hidden;
   }
   .timer-bar-fill {
@@ -284,9 +294,10 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-rows: auto auto;
     gap: 16px;
     min-width: 0;
+    align-content: start;
   }
 
   /* ── Cards ────────────────────────────────────────────────────── */
@@ -313,7 +324,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   #transcript-card {
     grid-column: 1;
     grid-row: 1;
-    min-height: 200px;
+    min-height: 0;
   }
   #transcript-lines {
     flex: 1;
@@ -338,8 +349,8 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   /* ── Audio level panel ────────────────────────────────────────── */
   #audio-card {
     grid-column: 2;
-    grid-row: 1;
-    min-height: 200px;
+    grid-row: 2;
+    min-height: 0;
   }
   .meter-container {
     flex: 1;
@@ -385,12 +396,12 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   #stress-card {
     grid-column: 1;
     grid-row: 2;
-    min-height: 200px;
+    min-height: 0;
   }
   #tactic-card {
     grid-column: 2;
-    grid-row: 2;
-    min-height: 200px;
+    grid-row: 1;
+    min-height: 0;
   }
 
   .score-big {
@@ -793,7 +804,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .tab-panel.active#tab-system { display: flex; }
 
   /* ── System Performance tab ───────────────────────────────────── */
-  #tab-system { overflow-y: auto; overflow-x: hidden; }
+  #tab-system { overflow-y: auto; overflow-x: hidden; padding-bottom: 16px; }
   .perf-header { font-size: 1.2rem; color: #76B900; margin-bottom: 16px; padding: 0 16px; flex-shrink: 0; }
   .metric-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 16px 16px; flex-shrink: 0; }
   .metric-card {
@@ -814,18 +825,49 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .perf-chart-card h3 { font-size: 0.8rem; color: var(--dim); margin-bottom: 8px; flex-shrink: 0; }
   .perf-chart-wrap { height: 140px; min-height: 140px; max-height: 140px; overflow: hidden; position: relative; }
   .perf-chart { width: 100% !important; height: 140px !important; max-height: 140px; }
-  .process-bars { padding: 16px; flex-shrink: 0; }
-  .process-bars h3 { font-size: 0.8rem; color: var(--dim); margin-bottom: 10px; }
-  .process-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .process-row .name { width: 140px; font-size: 0.85rem; }
-  .process-row .bar-bg { flex: 1; min-width: 0; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
+  .perf-bottom-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 16px;
+    padding: 16px;
+    align-items: start;
+  }
+  .process-bars,
+  .latency-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    flex-shrink: 0;
+  }
+  .process-bars h3,
+  .latency-panel h3 {
+    font-size: 0.85rem;
+    color: var(--text);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .process-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .process-row .name { width: 150px; font-size: 0.85rem; color: var(--text); }
+  .process-row .bar-bg { flex: 1; min-width: 0; height: 16px; background: rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; }
   .process-row .bar-fill { height: 100%; border-radius: 8px; transition: width 0.3s; }
-  .process-row .mb { width: 70px; font-size: 0.8rem; color: var(--dim); text-align: right; }
-  .latency-panel { padding: 16px; }
-  .latency-panel h3 { font-size: 0.8rem; color: var(--dim); margin-bottom: 10px; }
-  .latency-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.9rem; }
-  .latency-row .stage { color: var(--dim); }
+  .process-row .mb { width: 80px; font-size: 0.82rem; color: var(--dim); text-align: right; }
+  .latency-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 0.92rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .latency-row:last-child { border-bottom: none; }
+  .latency-row .stage { color: var(--text); }
   .latency-row .ms { font-weight: 600; color: var(--accent); }
+  @media (max-width: 1100px) {
+    .metric-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .perf-bottom-grid { grid-template-columns: 1fr; }
+  }
 
   /* ── Hero / About Page Styles ────────────────────────────────────── */
   :root {
@@ -1232,13 +1274,19 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   /* ── Key Facts Banner ────────────────────────────────────────────── */
   .key-facts-banner {
     display: flex;
+    align-items: flex-start;
     gap: 16px;
     background: #0d0d0d;
     border: 2px solid var(--anchor-teal);
     border-radius: 12px;
-    padding: 16px 20px;
-    margin: 16px;
-    margin-bottom: 0;
+    padding: 10px 12px;
+    position: fixed;
+    left: 16px;
+    right: 230px;
+    bottom: 16px;
+    margin: 0;
+    z-index: 900;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
   }
 
   .fact-item {
@@ -1246,7 +1294,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    padding: 10px 14px;
+    padding: 8px 10px;
     border-radius: 8px;
   }
 
@@ -1287,13 +1335,16 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   @media (max-width: 900px) {
     .key-facts-banner {
       flex-direction: column;
+      right: 16px;
+      bottom: 72px;
     }
   }
 
   /* ── Judge Mode Badge (floating) ─────────────────────────────────── */
   .judge-mode-badge {
     position: fixed;
-    top: 16px;
+    top: auto;
+    bottom: 16px;
     right: 16px;
     background: rgba(255, 107, 107, 0.95);
     color: #fff;
@@ -1810,33 +1861,32 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 <!-- Judge Mode Badge - visible on all pages -->
 <div class="judge-mode-badge">
   <span class="badge-icon">&#128065;</span>
-  <span class="badge-text">JUDGE VIEW</span>
+  <span class="badge-text">DEMO VIEW</span>
   <span class="badge-note">Elder sees nothing&mdash;only hears voice alerts</span>
 </div>
 
 <header>
-  <h1><span class="status-dot" id="status-dot"></span>.anchor</h1>
-  <p>We only hear one side. Watch what we know.</p>
-  <div class="demo-view-badge">DEMO VIEW</div>
-</header>
-
-<div class="status-panel" id="status-panel">
-  <span class="status-item" id="status-audio"><span class="status-dot-sm"></span>Audio Capture</span>
-  <span class="status-item" id="status-speech"><span class="status-dot-sm"></span>Speech Recognition</span>
-  <span class="status-item" id="status-stress"><span class="status-dot-sm"></span>Stress Detector</span>
-  <span class="status-item" id="status-tactic"><span class="status-dot-sm"></span>Tactic Inference</span>
-</div>
-
-<div class="ready-banner starting" id="ready-banner">
-  <span id="ready-text">⏳ Starting up&hellip;</span>
-  <div class="timer-bar" id="timer-bar" style="display:none;">
-    <div class="timer-bar-fill" id="timer-fill"></div>
+  <div class="header-main-row">
+    <h1><span class="status-dot" id="status-dot"></span>ANCHOR</h1>
+    <div class="status-panel" id="status-panel">
+      <span class="status-item" id="status-audio"><span class="status-dot-sm"></span>Audio Capture</span>
+      <span class="status-item" id="status-speech"><span class="status-dot-sm"></span>Speech Recognition</span>
+      <span class="status-item" id="status-stress"><span class="status-dot-sm"></span>Stress Detector</span>
+      <span class="status-item" id="status-tactic"><span class="status-dot-sm"></span>Tactic Inference</span>
+      <div class="ready-banner starting" id="ready-banner">
+        <span id="ready-text">Starting up&hellip;</span>
+        <div class="timer-bar" id="timer-bar" style="display:none;">
+          <div class="timer-bar-fill" id="timer-fill"></div>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
+  <p>We only hear one side. Watch what we know.</p>
+</header>
 
 <nav class="tab-bar">
   <button class="tab-btn active" data-tab="about">About</button>
-  <button class="tab-btn" data-tab="pipeline">Demo</button>
+      <button class="tab-btn" data-tab="pipeline">Demo View</button>
   <button class="tab-btn" data-tab="system">System Performance</button>
   <button class="tab-btn" data-tab="architecture">Architecture</button>
 </nav>
@@ -1965,10 +2015,12 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
       <div class="perf-chart-card"><h3>Power (60s)</h3><div class="perf-chart-wrap"><canvas class="perf-chart" id="chart-power"></canvas></div></div>
       <div class="perf-chart-card"><h3>Inference Latency (60s)</h3><div class="perf-chart-wrap"><canvas class="perf-chart" id="chart-latency"></canvas></div></div>
     </div>
-    <div class="process-bars">
-      <h3>Process Memory Usage</h3>
-      <div id="process-bars-container"><div class="waiting-msg">Waiting for system metrics&hellip;</div></div>
-      <div class="latency-panel" style="margin-top:12px;">
+    <div class="perf-bottom-grid">
+      <div class="process-bars">
+        <h3>Process Memory Usage</h3>
+        <div id="process-bars-container"><div class="waiting-msg">Waiting for system metrics&hellip;</div></div>
+      </div>
+      <div class="latency-panel">
         <h3>Pipeline Latency (avg last 10)</h3>
         <div class="latency-row"><span class="stage">Audio &rarr; Whisper</span><span class="ms" id="lat-whisper">&mdash;</span></div>
         <div class="latency-row"><span class="stage">Whisper &rarr; Analyzer</span><span class="ms" id="lat-analyzer">&mdash;</span></div>
@@ -2274,15 +2326,6 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Demo CTA -->
-        <div class="demo-cta">
-          <div class="cta-pulse"></div>
-          <div class="cta-content">
-            <div class="cta-icon">&#127908;</div>
-            <h3>Ask Us For a Live Demo</h3>
-            <p>&ldquo;Try to scam our grandma&rdquo;</p>
-          </div>
-        </div>
       </div>
 
       <!-- Value prop cards - Key differentiators -->
