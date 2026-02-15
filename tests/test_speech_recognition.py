@@ -75,7 +75,7 @@ class TestASRConfig:
 
     def test_default_min_audio_length(self) -> None:
         cfg = ASRConfig()
-        assert cfg.min_audio_length == 1.0
+        assert cfg.min_audio_length == 2.5
 
     def test_custom_values(self) -> None:
         cfg = ASRConfig(model_size="tiny", language="es", min_audio_length=2.5)
@@ -113,6 +113,44 @@ class TestSpeechRecognizerInit:
         """The WhisperModel constructor should be called once during init."""
         sr = SpeechRecognizer(config=ASRConfig(), bus=MessageBus())
         mock_model_cls.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _normalize_audio
+# ---------------------------------------------------------------------------
+
+class TestNormalizeAudio:
+    """_normalize_audio must scale quiet audio toward target dB without over-amplifying."""
+
+    @patch("src.core.speech_recognition.WhisperModel")
+    def test_identity_for_silence(self, mock_model_cls: MagicMock) -> None:
+        """Zero RMS (silence) must return unchanged to avoid division by zero."""
+        sr = SpeechRecognizer(config=ASRConfig(), bus=MessageBus())
+        silence = np.zeros(1000, dtype=np.float32)
+        result = sr._normalize_audio(silence)
+        np.testing.assert_array_equal(result, silence)
+
+    @patch("src.core.speech_recognition.WhisperModel")
+    def test_amplifies_quiet_audio(self, mock_model_cls: MagicMock) -> None:
+        """Low-level audio must be scaled up toward target dB."""
+        sr = SpeechRecognizer(config=ASRConfig(), bus=MessageBus())
+        # 0.01 RMS ≈ -40 dB; normalising to -20 dB should apply ~10x gain.
+        quiet = np.ones(16000, dtype=np.float32) * 0.01
+        result = sr._normalize_audio(quiet, target_db=-20.0)
+        rms_out = np.sqrt(np.mean(result.astype(np.float64) ** 2))
+        assert rms_out > 0.05
+        assert rms_out < 0.2  # ~10^-(20/20) = 0.1 target
+
+    @patch("src.core.speech_recognition.WhisperModel")
+    def test_caps_gain_avoids_excessive_amplification(self, mock_model_cls: MagicMock) -> None:
+        """Gain must be capped (e.g. 10x) to avoid amplifying noise."""
+        sr = SpeechRecognizer(config=ASRConfig(), bus=MessageBus())
+        # Very quiet: 0.001 RMS would want ~100x gain, capped at 10x.
+        very_quiet = np.ones(16000, dtype=np.float32) * 0.001
+        result = sr._normalize_audio(very_quiet, target_db=-20.0)
+        rms_out = np.sqrt(np.mean(result.astype(np.float64) ** 2))
+        # 0.001 * 10 = 0.01 max expected
+        assert rms_out <= 0.015
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +409,8 @@ class TestEndToEndWire:
         # Start recogniser in background.
         t = threading.Thread(target=sr.start, daemon=True)
         t.start()
-        time.sleep(0.3)  # let it subscribe and settle
+        # create_subscriber sleeps 0.5s for slow-joiner; wait for recognizer ready
+        time.sleep(1.0)
 
         # Publish enough audio to cross the 0.5 s threshold.
         # 16000 * 0.5 = 8000 samples.  Each chunk = 1024 → need ~8 chunks.

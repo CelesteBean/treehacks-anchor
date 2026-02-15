@@ -7,11 +7,31 @@ accumulates them into 2–3 second windows, runs the
 dimensional-emotion model on CUDA, and publishes stress results on
 ``STRESS_PORT`` (5557).
 
-The model outputs three continuous dimensions:
+Vocal Stress Detection — How It Works
+------------------------------------
 
-* **Arousal** – activation / stress level (primary signal).
-* **Dominance** – perceived control.
-* **Valence** – positivity / negativity.
+* **Model**: ``audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim`` — a Wav2Vec2
+  backbone fine-tuned on the MSP-Podcast corpus for dimensional emotion prediction.
+  The model outputs three continuous values in approximately the [0, 1] range:
+
+  * **Arousal** — activation / stress level (primary signal). High arousal indicates
+    heightened emotional activation (stress, excitement, fear).
+  * **Valence** — positivity vs negativity. Low valence = negative affect.
+  * **Dominance** — perceived control or submissiveness.
+
+* **Stress score**: The published ``stress_score`` is set equal to **arousal**.
+  Arousal is the primary proxy for vocal stress; high arousal often correlates
+  with scam-induced anxiety.
+
+* **Confidence heuristic** (internal): ``0.5 * arousal + 0.3 * (1 - valence) +
+  0.2 * (1 - dominance)``, clipped to [0, 1]. Higher when arousal is high and
+  valence/dominance are low — suggests genuine stress rather than excitement.
+
+* **Known limitations**:
+  - Trained on English speech; may not generalize well to other languages.
+  - Short windows (2–3 s) can be noisy; emotions vary within a call.
+  - Cannot distinguish stress from excitement (e.g. joyful reunion) without
+    context from the transcript/tactic layer.
 
 Architecture
 ------------
@@ -395,6 +415,7 @@ class StressDetector:
                 )
 
                 # Build and publish the stress message.
+                # stress_score = arousal (primary stress proxy).
                 stress_msg: dict[str, Any] = {
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "stress_score": emotions["arousal"],

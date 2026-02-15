@@ -124,6 +124,8 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     font-size: 16px;
     min-height: 100vh;
     overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   /* ── Palette ──────────────────────────────────────────────────── */
@@ -177,14 +179,93 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     animation: pulse-dot 2s ease-in-out infinite;
   }
 
-  /* ── Grid layout ──────────────────────────────────────────────── */
+  /* ── Component status panel ───────────────────────────────────── */
+  .status-panel {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--dim);
+  }
+  .status-item.connected { color: var(--accent); }
+  .status-dot-sm {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--dim);
+    opacity: 0.5;
+  }
+  .status-item.connected .status-dot-sm {
+    background: var(--accent);
+    opacity: 1;
+  }
+
+  /* ── Ready / Timer banner ─────────────────────────────────────── */
+  .ready-banner {
+    text-align: center;
+    padding: 14px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+  .ready-banner.starting {
+    color: var(--dim);
+    background: rgba(253, 203, 110, 0.08);
+  }
+  .ready-banner.ready {
+    color: var(--success);
+    background: rgba(0, 184, 148, 0.25);
+    font-size: 1.4rem;
+    font-weight: 600;
+    animation: pulse-ready 2s ease-in-out infinite;
+  }
+  .ready-banner.listening {
+    color: var(--success);
+    background: rgba(91, 191, 179, 0.2);
+    animation: pulse-ready 2s ease-in-out infinite;
+  }
+  .ready-banner.analyzing {
+    color: #74b9ff;
+    background: rgba(116, 185, 255, 0.15);
+  }
+  .ready-banner.complete {
+    color: var(--success);
+    background: rgba(0, 184, 148, 0.12);
+  }
+  @keyframes pulse-ready {
+    0%, 100% { opacity: 1; }
+    50%     { opacity: 0.85; }
+  }
+  .timer-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .timer-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.5s linear;
+  }
+
+  /* ── Grid layout for the 4 main cards ──────────────────────────── */
   .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr auto;
-    gap: 12px;
-    padding: 12px;
-    height: calc(100vh - 100px);
+    grid-template-rows: 1fr 1fr;
+    gap: 16px;
+    min-width: 0;
   }
 
   /* ── Cards ────────────────────────────────────────────────────── */
@@ -208,7 +289,11 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   }
 
   /* ── Transcript panel ─────────────────────────────────────────── */
-  #transcript-card { grid-column: 1; grid-row: 1; }
+  #transcript-card {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 200px;
+  }
   #transcript-lines {
     flex: 1;
     overflow-y: auto;
@@ -230,7 +315,11 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   }
 
   /* ── Audio level panel ────────────────────────────────────────── */
-  #audio-card { grid-column: 2; grid-row: 1; }
+  #audio-card {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 200px;
+  }
   .meter-container {
     flex: 1;
     display: flex;
@@ -272,8 +361,16 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   }
 
   /* ── Bottom cards ─────────────────────────────────────────────── */
-  #stress-card { grid-column: 1; grid-row: 2; min-height: 140px; }
-  #tactic-card { grid-column: 2; grid-row: 2; min-height: 240px; }
+  #stress-card {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 200px;
+  }
+  #tactic-card {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 200px;
+  }
 
   .score-big {
     font-size: 2.2rem;
@@ -369,6 +466,136 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     border-color: var(--danger);
     box-shadow: 0 0 12px rgba(225, 112, 85, 0.25);
   }
+
+  /* ── Main layout: fixed grid, script panel 300px left ───────────── */
+  .dashboard-container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0;
+    padding: 0;
+  }
+  .script-panel {
+    grid-row: 1 / -1;
+    width: 300px;
+    min-width: 300px;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+  }
+  .dashboard-panel {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    padding: 16px;
+  }
+
+  /* ── Scenario dropdown: fixed width, all 6 options visible ──────── */
+  .script-selector {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .script-selector label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dim);
+    margin-bottom: 6px;
+  }
+  .scenario-select {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .scenario-select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .scenario-select option {
+    background: #2a2a2a;
+    color: #fff;
+    padding: 8px;
+  }
+  .scenario-select optgroup {
+    font-weight: 600;
+    color: var(--dim);
+  }
+  .scenario-type-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .scenario-type-badge.scam {
+    background: rgba(225, 112, 85, 0.2);
+    color: var(--danger);
+  }
+  .scenario-type-badge.benign {
+    background: rgba(0, 184, 148, 0.2);
+    color: var(--success);
+  }
+
+  /* ── Teleprompter: fixed height, scrollable script lines ───────── */
+  .teleprompter {
+    flex: 1;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .script-lines {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .teleprompter-placeholder {
+    color: var(--dim);
+    font-style: italic;
+    font-size: 0.95rem;
+    text-align: center;
+    padding: 16px;
+  }
+  .script-line {
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 4px;
+    font-size: 18px;
+    line-height: 1.4;
+    transition: background 0.2s;
+    color: var(--dim);
+  }
+  .script-line.current {
+    background: #3a5a3a;
+    border-left: 4px solid #4ade80;
+    font-weight: bold;
+    color: var(--text);
+  }
+  .script-line.completed {
+    opacity: 0.5;
+  }
+  .script-progress {
+    padding: 10px 16px;
+    font-size: 0.75rem;
+    color: var(--dim);
+    border-top: 1px solid var(--border);
+  }
 </style>
 </head>
 <body>
@@ -378,6 +605,55 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   <p>We only hear one side. Watch what we know.</p>
 </header>
 
+<div class="status-panel" id="status-panel">
+  <span class="status-item" id="status-audio"><span class="status-dot-sm"></span>Audio Capture</span>
+  <span class="status-item" id="status-speech"><span class="status-dot-sm"></span>Speech Recognition</span>
+  <span class="status-item" id="status-stress"><span class="status-dot-sm"></span>Stress Detector</span>
+  <span class="status-item" id="status-tactic"><span class="status-dot-sm"></span>Tactic Inference</span>
+</div>
+
+<div class="ready-banner starting" id="ready-banner">
+  <span id="ready-text">⏳ Starting up&hellip;</span>
+  <div class="timer-bar" id="timer-bar" style="display:none;">
+    <div class="timer-bar-fill" id="timer-fill"></div>
+  </div>
+</div>
+
+<div class="main-content dashboard-container">
+  <aside class="script-panel">
+    <div class="script-selector">
+      <div class="scenario-type-badge" id="scenario-type-badge" style="display:none;"></div>
+      <label for="script-select">Scenario</label>
+      <select id="script-select" class="scenario-select">
+        <option value="">— Select scenario —</option>
+        <optgroup label="Scam scenarios">
+          <option value="authority">[SCAM] Authority/Government</option>
+          <option value="bank">[SCAM] Bank Security</option>
+          <option value="grandchild">[SCAM] Grandchild Emergency</option>
+          <option value="tech">[SCAM] Tech Support</option>
+          <option value="payment">[SCAM] Payment Demand</option>
+          <option value="romance">[SCAM] Romance Scam</option>
+        </optgroup>
+        <optgroup label="Benign scenarios">
+          <option value="doctors">[BENIGN] Doctor&rsquo;s Office</option>
+          <option value="friend">[BENIGN] Friend Calling</option>
+          <option value="pharmacy">[BENIGN] Pharmacy Refill</option>
+          <option value="family">[BENIGN] Family Check-in</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="teleprompter" id="teleprompter">
+      <div class="teleprompter-placeholder" id="teleprompter-placeholder">
+        Select a scenario to see the elder&rsquo;s lines
+      </div>
+      <div id="script-lines" class="script-lines" style="display:none;"></div>
+    </div>
+    <div class="script-progress" id="script-progress" style="display:none;">
+      Line <span id="current-line-num">0</span> of <span id="total-lines">0</span>
+    </div>
+  </aside>
+
+  <div class="dashboard-panel">
 <div class="grid">
   <!-- Transcript -->
   <div class="card" id="transcript-card">
@@ -417,6 +693,8 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     <div class="tactic-meta" id="tactic-meta"></div>
   </div>
 </div>
+  </div>
+</div>
 
 <!-- Socket.IO client -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
@@ -436,17 +714,289 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   socket.on("connect",    () => { dot.classList.add("connected"); });
   socket.on("disconnect", () => { dot.classList.remove("connected"); });
 
+  /* ── Script selector & teleprompter ────────────────────────────── */
+  const SCRIPTS = {
+    authority: [
+      "Oh my, this sounds serious.",
+      "Yes, I understand. I don't want any trouble.",
+      "My social security number? Well, if you need it...",
+      "I'm just a little confused about what I did wrong.",
+      "Please don't send anyone to my house.",
+      "Okay, okay, let me get my information.",
+      "How much did you say I need to pay to fix this?",
+    ],
+    bank: [
+      "Suspicious activity? Oh no, what happened?",
+      "Yes, I have my card right here.",
+      "You need me to verify my account number?",
+      "I want to make sure my money is safe.",
+      "A verification code just came to my phone.",
+      "You want me to read it to you? Okay, it says...",
+      "Should I stay on the line while you fix it?",
+    ],
+    grandchild: [
+      "Tommy? Is that you? You sound different.",
+      "Oh my god, are you hurt? What happened?",
+      "You're in jail? How did this happen?",
+      "Of course I'll help you, sweetheart.",
+      "I won't tell your parents, I promise.",
+      "How much do you need for the bail?",
+      "I can go to the store and get that for you.",
+    ],
+    tech: [
+      "A virus? Oh dear, I don't know how that happened.",
+      "Yes, I can see the screen you're talking about.",
+      "You need remote access? Is that safe?",
+      "I'm typing in what you told me.",
+      "It's asking for my password now.",
+      "Three hundred dollars to fix it? That seems like a lot.",
+      "Let me get my credit card.",
+    ],
+    payment: [
+      "A warrant for my arrest? There must be a mistake.",
+      "I've never been in trouble with the law.",
+      "If I pay now, this goes away?",
+      "Gift cards? That's an unusual way to pay.",
+      "Which store should I go to?",
+      "I'm writing down the amounts you need.",
+      "I'll go right now. Please don't hang up.",
+    ],
+    romance: [
+      "I feel so lucky we found each other.",
+      "Of course I trust you, darling.",
+      "You're stuck overseas? That's terrible.",
+      "I wish I could be there to help you.",
+      "How much do you need to get home?",
+      "Western Union? I can figure out how to do that.",
+      "I'd do anything for you, you know that.",
+    ],
+    /* Benign scenarios for false-positive testing */
+    doctors: [
+      "Hello? Yes, this is she.",
+      "Oh yes, I remember. Tuesday at two o'clock.",
+      "Do I need to bring my insurance card?",
+      "And I shouldn't eat anything before the appointment?",
+      "Okay, I'll be there fifteen minutes early.",
+      "Thank you for calling to remind me.",
+    ],
+    friend: [
+      "Margaret! It's so good to hear from you.",
+      "I've been meaning to call you too.",
+      "How are the grandchildren doing?",
+      "That sounds wonderful. I'd love to see the photos.",
+      "Yes, let's have lunch this week.",
+      "Thursday works perfectly for me. See you then!",
+    ],
+    pharmacy: [
+      "Yes, this is the right number.",
+      "My blood pressure medication, yes.",
+      "It's ready for pickup? Great.",
+      "I can come by this afternoon.",
+      "Do I need to bring anything?",
+      "Thank you, I appreciate the reminder.",
+    ],
+    family: [
+      "Hi sweetheart! How are you?",
+      "Work is going well? That's good to hear.",
+      "Yes, I'm feeling much better this week.",
+      "I made that soup recipe you sent me.",
+      "Sunday dinner sounds lovely.",
+      "I love you too. Talk soon.",
+    ],
+  };
+
+  const SCAM_KEYS = ["authority", "bank", "grandchild", "tech", "payment", "romance"];
+  const BENIGN_KEYS = ["doctors", "friend", "pharmacy", "family"];
+
+  const scriptSelect = document.getElementById("script-select");
+  const scriptLinesEl = document.getElementById("script-lines");
+  const teleprompterPlaceholder = document.getElementById("teleprompter-placeholder");
+  const scriptProgress = document.getElementById("script-progress");
+  const currentLineNumEl = document.getElementById("current-line-num");
+  const totalLinesEl = document.getElementById("total-lines");
+  const scenarioTypeBadge = document.getElementById("scenario-type-badge");
+
+  let currentScript = null;
+  let currentLineIndex = 0;
+
+  function renderScript() {
+    if (!currentScript || !SCRIPTS[currentScript]) {
+      teleprompterPlaceholder.style.display = "block";
+      scriptLinesEl.style.display = "none";
+      scriptProgress.style.display = "none";
+      if (scenarioTypeBadge) scenarioTypeBadge.style.display = "none";
+      return;
+    }
+    if (scenarioTypeBadge) {
+      scenarioTypeBadge.style.display = "block";
+      scenarioTypeBadge.textContent = BENIGN_KEYS.indexOf(currentScript) >= 0 ? "BENIGN" : "SCAM";
+      scenarioTypeBadge.className = "scenario-type-badge " + (BENIGN_KEYS.indexOf(currentScript) >= 0 ? "benign" : "scam");
+    }
+    const lines = SCRIPTS[currentScript];
+    teleprompterPlaceholder.style.display = "none";
+    scriptLinesEl.style.display = "block";
+    scriptProgress.style.display = "block";
+    scriptLinesEl.innerHTML = "";
+    totalLinesEl.textContent = lines.length;
+    lines.forEach(function(line, i) {
+      const div = document.createElement("div");
+      var cls = "script-line";
+      if (i === currentLineIndex) cls += " current";
+      else if (i < currentLineIndex) cls += " completed";
+      div.className = cls;
+      div.textContent = line;
+      div.id = i === currentLineIndex ? "script-line-current" : "";
+      scriptLinesEl.appendChild(div);
+    });
+    var cur = document.getElementById("script-line-current");
+    if (cur) cur.scrollIntoView({ behavior: "smooth", block: "center" });
+    currentLineNumEl.textContent = currentLineIndex + 1;
+  }
+
+  function advanceLine() {
+    if (!currentScript || !SCRIPTS[currentScript]) return;
+    const lines = SCRIPTS[currentScript];
+    if (currentLineIndex < lines.length - 1) {
+      currentLineIndex++;
+      renderScript();
+    }
+  }
+
+  function resetScript() {
+    currentLineIndex = 0;
+    renderScript();
+  }
+
+  function selectScript(key) {
+    if (SCRIPTS[key]) {
+      currentScript = key;
+      currentLineIndex = 0;
+      scriptSelect.value = key;
+      renderScript();
+    }
+  }
+
+  scriptSelect.addEventListener("change", function() {
+    const val = this.value;
+    if (val) {
+      selectScript(val);
+    } else {
+      currentScript = null;
+      currentLineIndex = 0;
+      renderScript();
+    }
+  });
+
+  document.addEventListener("keydown", function(e) {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      advanceLine();
+    } else if (e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      resetScript();
+    } else if (e.key >= "1" && e.key <= "9") {
+      var keys = ["authority", "bank", "grandchild", "tech", "payment", "romance", "doctors", "friend", "pharmacy"];
+      selectScript(keys[parseInt(e.key, 10) - 1]);
+    } else if (e.key === "0") {
+      selectScript("family");
+    }
+  });
+
+  document.getElementById("teleprompter").addEventListener("click", function() {
+    advanceLine();
+  });
+
+  /* ── Component status & ready banner ──────────────────────────── */
+  const components = {
+    audio: document.getElementById("status-audio"),
+    speech: document.getElementById("status-speech"),
+    stress: document.getElementById("status-stress"),
+    tactic: document.getElementById("status-tactic"),
+  };
+  const readyBanner = document.getElementById("ready-banner");
+  const readyText = document.getElementById("ready-text");
+  const timerBar = document.getElementById("timer-bar");
+  const timerFill = document.getElementById("timer-fill");
+
+  function markConnected(name) {
+    const el = components[name];
+    if (el && !el.classList.contains("connected")) {
+      el.classList.add("connected");
+      updateReadyBanner();
+    }
+  }
+
+  function updateReadyBanner() {
+    const all = components.audio.classList.contains("connected") &&
+               components.speech.classList.contains("connected") &&
+               components.stress.classList.contains("connected") &&
+               components.tactic.classList.contains("connected");
+    if (all && !readyBanner.classList.contains("listening") &&
+        !readyBanner.classList.contains("analyzing") &&
+        !readyBanner.classList.contains("complete")) {
+      readyBanner.classList.remove("starting");
+      readyBanner.classList.add("ready");
+      readyText.textContent = "🛡️ READY TO PROTECT";
+    } else if (!all && !readyBanner.classList.contains("listening") &&
+               !readyBanner.classList.contains("analyzing") &&
+               !readyBanner.classList.contains("complete")) {
+      readyBanner.classList.remove("ready");
+      readyBanner.classList.add("starting");
+      readyText.textContent = "⏳ Starting up…";
+    }
+  }
+
+  /* ── Speaking timer (30s when transcripts start) ───────────────── */
+  let timerInterval = null;
+  const SPEAKING_DURATION = 30;
+
+  function startSpeakingTimer() {
+    if (readyBanner.classList.contains("complete")) return;
+    if (timerInterval) return;  /* Already running */
+    readyBanner.classList.remove("ready", "starting", "analyzing");
+    readyBanner.classList.add("listening");
+    timerBar.style.display = "block";
+    let elapsed = 0;
+    function tick() {
+      elapsed++;
+      const pct = Math.min(100, (elapsed / SPEAKING_DURATION) * 100);
+      readyText.textContent = "🎤 LISTENING… " + formatTime(elapsed) + " / " + formatTime(SPEAKING_DURATION);
+      timerFill.style.width = pct + "%";
+      if (elapsed >= SPEAKING_DURATION) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        readyBanner.classList.remove("listening");
+        readyBanner.classList.add("complete");
+        readyText.textContent = "✓ Complete — Processing…";
+        timerBar.style.display = "none";
+      }
+    }
+    tick();
+    timerInterval = setInterval(tick, 1000);
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
   /* ── Transcript ──────────────────────────────────────────────── */
   const MAX_LINES = 10;
   const transcriptEl = document.getElementById("transcript-lines");
   const transcriptWait = document.getElementById("transcript-waiting");
 
   socket.on("transcript", (data) => {
+    const text = (data.text || "").trim();
+    if (!text || text === "(silence)") return;  /* Filter empty/whitespace/silence */
+    markConnected("speech");
+    startSpeakingTimer();
     if (transcriptWait) transcriptWait.remove();
     const line = document.createElement("div");
     line.className = "line";
     const ts = data.timestamp ? data.timestamp.split("T")[1].substring(0, 8) : "";
-    line.innerHTML = '<span class="ts">' + ts + '</span>' + escapeHtml(data.text);
+    line.innerHTML = '<span class="ts">' + ts + '</span>' + escapeHtml(text);
     transcriptEl.appendChild(line);
 
     /* Keep only last MAX_LINES */
@@ -463,6 +1013,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   let audioChunks = 0;
 
   socket.on("audio_level", (data) => {
+    markConnected("audio");
     audioChunks++;
     const rms = data.rms || 0;
 
@@ -485,6 +1036,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   const stressIndEl   = document.getElementById("stress-indicators");
 
   socket.on("stress", (data) => {
+    markConnected("stress");
     const score = data.score != null ? data.score : 0;
     stressScoreEl.textContent = score.toFixed(2);
     stressScoreEl.className = "score-big " +
@@ -509,6 +1061,19 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   }
 
   socket.on("tactics", (data) => {
+    markConnected("tactic");
+    if (readyBanner.classList.contains("listening") && !readyBanner.classList.contains("complete")) {
+      readyBanner.classList.remove("listening");
+      readyBanner.classList.add("analyzing");
+      readyText.textContent = "🔍 ANALYZING…";
+      setTimeout(function() {
+        if (readyBanner.classList.contains("analyzing") && !readyBanner.classList.contains("complete")) {
+          readyBanner.classList.remove("analyzing");
+          readyBanner.classList.add("listening");
+          readyText.textContent = "🎤 LISTENING…";
+        }
+      }, 2000);
+    }
     /* ── Risk badge ─────────────────────────────────────────── */
     const risk = (data.risk_level || "low").toLowerCase();
     riskBadgeEl.textContent = risk.toUpperCase();
@@ -547,10 +1112,16 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
       tacticBarsEl.appendChild(row);
     });
 
-    /* ── Metadata ───────────────────────────────────────────── */
+    /* ── Metadata (word count, inference time, timestamp) ──── */
     var parts = [];
-    if (data.transcript_count != null)  parts.push(data.transcript_count + " transcripts");
-    if (data.inference_time_ms != null) parts.push((data.inference_time_ms / 1000).toFixed(1) + "s inference");
+    if (data.word_count != null)         parts.push(data.word_count + " words");
+    else if (data.transcript_count != null) parts.push(data.transcript_count + " transcripts");
+    if (data.inference_time_ms != null)  parts.push((data.inference_time_ms / 1000).toFixed(1) + "s inference");
+    if (data.timestamp) {
+      var t = data.timestamp;
+      var tsShort = t.indexOf("T") >= 0 ? t.split("T")[1].substring(0, 8) : t;
+      parts.push("analyzed " + tsShort);
+    }
     tacticMetaEl.textContent = parts.length > 0 ? parts.join(" \u00b7 ") : "";
 
     /* ── Alert glow ─────────────────────────────────────────── */
@@ -688,7 +1259,11 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
                     )
 
             elif topic == "transcript":
-                text = data.get("text", "")
+                text = (data.get("text", "") or "").strip()
+                # Skip empty, whitespace-only, or silence placeholders
+                if not text or text == "(silence)":
+                    logger.debug("Filtering transcript: empty or (silence)")
+                    continue
                 socketio.emit("transcript", {
                     "text": text,
                     "timestamp": data.get("timestamp", timestamp),
@@ -733,7 +1308,8 @@ def zmq_listener(socketio: SocketIO, bus: MessageBus | None = None) -> None:
                 socketio.emit("tactics", {
                     "tactics": tactics_dict,
                     "risk_level": risk_level,
-                    "transcript_count": data.get("transcript_count", 0),
+                    "transcript_count": data.get("transcript_count"),
+                    "word_count": data.get("word_count"),
                     "inference_time_ms": data.get("inference_time_ms", 0),
                     "timestamp": timestamp,
                 })

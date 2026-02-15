@@ -78,11 +78,12 @@ class ASRConfig:
     min_audio_length:
         Minimum seconds of audio to buffer before invoking Whisper.
         Shorter values give faster feedback but may reduce accuracy.
+        Default 2.5 s improves coherence by avoiding mid-word chunk cuts.
     """
 
     model_size: str = "small"
     language: str = "en"
-    min_audio_length: float = 1.0
+    min_audio_length: float = 2.5
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +146,30 @@ class SpeechRecognizer:
     # -- Audio decoding ------------------------------------------------------
 
     @staticmethod
+    def _normalize_audio(audio: np.ndarray, target_db: float = -20.0) -> np.ndarray:
+        """Normalize audio to target dB level to improve Whisper accuracy on quiet input.
+
+        Parameters
+        ----------
+        audio:
+            1-D float32 array in [-1.0, 1.0].
+        target_db:
+            Target RMS level in decibels. -20 dB is a common broadcast level.
+
+        Returns
+        -------
+        np.ndarray
+            Normalised audio; gain is capped at 10x to avoid amplifying noise.
+        """
+        rms = np.sqrt(np.mean(audio.astype(np.float32) ** 2))
+        if rms > 0:
+            target_rms = 10 ** (target_db / 20)
+            gain = target_rms / rms
+            gain = min(gain, 10.0)
+            audio = (audio * gain).astype(audio.dtype)
+        return audio
+
+    @staticmethod
     def _decode_audio(data: dict[str, Any]) -> np.ndarray:
         """Decode a base64-encoded int16 audio payload to float32.
 
@@ -183,15 +208,19 @@ class SpeechRecognizer:
         dict
             ``{"text": str, "segments": list[dict], "language": str}``
         """
+        audio = self._normalize_audio(audio)
+
         segments_iter, info = self._model.transcribe(
             audio,
             language=self.config.language,
-            beam_size=1,           # greedy — fastest on Jetson
-            vad_filter=True,       # skip silence for lower latency
+            beam_size=5,
+            best_of=5,
+            vad_filter=True,
             vad_parameters=dict(
-                threshold=0.3,          # Lower from default 0.5 - more sensitive to speech
-                min_speech_duration_ms=100,  # Shorter minimum speech segments
-                min_silence_duration_ms=300,  # Shorter silence gaps allowed
+                threshold=0.25,
+                min_speech_duration_ms=250,
+                min_silence_duration_ms=500,
+                speech_pad_ms=200,
             ),
         )
 

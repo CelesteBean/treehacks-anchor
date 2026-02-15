@@ -6,6 +6,34 @@ analyzes transcripts for manipulation tactics.
 Phase 2: ZeroMQ service wrapper — subscribes to ``transcript`` and
 ``stress`` topics, runs periodic inference, and publishes ``tactics``
 assessments on the message bus.
+
+Scam Tactic Detection — How It Works
+------------------------------------
+
+* **Model**: ``Qwen/Qwen2.5-0.5B-Instruct`` — a 0.5B parameter instruction-tuned
+  LLM. Runs in float16 on CUDA for Jetson Orin Nano compatibility.
+
+* **Prompt**: A fixed prompt asks the model to score five manipulation tactics
+  (0.0–1.0) from the elder's side of a phone conversation:
+  - urgency (time pressure)
+  - authority (official claims: IRS, police, government)
+  - fear (threats: arrest, lawsuit, jail)
+  - isolation (secrecy: don't tell, keep secret)
+  - financial (money requests: gift cards, wire transfer)
+
+* **Tactic extraction**: The model returns JSON like
+  ``{"urgency": 0.8, "authority": 0.9, ...}``. We parse the first ``{...}``
+  block; malformed output falls back to all zeros.
+
+* **Risk level** (simple heuristic):
+  - **high**: max_tactic > 0.7 AND stress_score > 0.6
+  - **medium**: max_tactic > 0.5 OR stress_score > 0.7
+  - **low**: otherwise
+
+* **Known limitations**:
+  - Small model; can miss nuanced or novel phrasings.
+  - Greedy decoding (deterministic); no sampling diversity.
+  - Relies on transcript quality; ASR errors affect detection.
 """
 
 from __future__ import annotations
@@ -181,7 +209,10 @@ class TacticInference:
         logger.debug("Raw LLM response: %s", response)
         tactics = self._parse_tactics(response)
 
-        # Simple two-signal risk heuristic (Phase 2 refines this).
+        # Risk heuristic: max_tactic + stress_score.
+        # high: max_tactic > 0.7 AND stress > 0.6
+        # medium: max_tactic > 0.5 OR stress > 0.7
+        # low: otherwise
         max_tactic = max(tactics.values()) if tactics else 0.0
         if max_tactic > 0.7 and stress_score > 0.6:
             risk_level = "high"
