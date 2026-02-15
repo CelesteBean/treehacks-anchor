@@ -1,97 +1,110 @@
 # Anchor Detection Methodology
 
-This document summarizes how the Anchor phone-scam detection system analyzes audio and transcripts to infer scam risk.
+This document summarizes how the Anchor phone-scam detection system analyzes transcripts to infer scam risk.
 
 ## Overview
 
-The pipeline combines two signals:
+The detection pipeline uses a **lightweight multi-signal architecture** (`src/core/content_analyzer.py`) that replaces the previous wav2vec2 + Qwen setup. No GPU is required for detection.
 
-1. **Vocal stress** — acoustic model on raw audio
-2. **Scam tactics** — language model on transcript text
+**Memory:** ~200MB total (vs 2GB before)  
+**Latency:** <500ms (vs 13s before)
 
-Both feed into a final risk level (low / medium / high) displayed on the dashboard.
+Four signal classes are combined:
 
----
-
-## 1. Vocal Stress Detection
-
-**Module:** `src/core/stress_detector.py`  
-**Model:** `audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim`
-
-### What It Does
-
-A Wav2Vec2-based model fine-tuned on the MSP-Podcast corpus predicts three dimensional emotion values from 2–3 second audio windows:
-
-| Output   | Meaning                                      |
-| -------- | -------------------------------------------- |
-| Arousal  | Activation / stress level (0–1)              |
-| Valence  | Positivity vs negativity (0–1)                |
-| Dominance| Perceived control (0–1)                       |
-
-### Stress Score Derivation
-
-The published **stress_score** is the **arousal** value. High arousal indicates heightened emotional activation, often associated with scam-induced anxiety.
-
-A confidence heuristic (internal) combines arousal, valence, and dominance:
-```
-confidence = 0.5 * arousal + 0.3 * (1 - valence) + 0.2 * (1 - dominance)
-```
-Higher values suggest genuine stress rather than excitement.
-
-### Limitations
-
-- Trained on English; may not generalize to other languages.
-- Short windows (2–3 s) can be noisy.
-- Cannot distinguish stress from excitement without transcript context (e.g. joyful reunion vs scam fear).
+1. **Prosodic features** — speech rate, pauses, hesitations (from transcript text)
+2. **VADER sentiment** — rule-based, ~1ms
+3. **Semantic similarity** — sentence-transformers (80MB) + scam phrase database
+4. **Temporal tracking** — escalation, call duration, repetition
 
 ---
 
-## 2. Scam Tactic Detection
+## 1. Prosodic Features
 
-**Module:** `src/core/tactic_inference.py`  
-**Model:** `Qwen/Qwen2.5-0.5B-Instruct`
+**Source:** Inferred from transcript text (no audio).
 
-### What It Does
+| Signal             | Derivation                                      |
+| ------------------ | ----------------------------------------------- |
+| Speech rate        | Words per second (from duration hint)           |
+| Hesitation count   | "um", "uh", "er", "well", "like"                |
+| Question indicators| "?", "what", "why", "how", etc.                 |
+| Pause ratio        | Ellipsis, repeated punctuation                   |
+| Confusion score    | Composite (hesitation + questions + pauses)     |
 
-An instruction-tuned 0.5B parameter LLM analyzes recent transcripts for five manipulation tactics:
-
-| Tactic    | Examples                                          |
-| --------- | -------------------------------------------------- |
-| urgency   | "pay today", "right now"                           |
-| authority | "IRS", "police", "government"                      |
-| fear      | "arrested", "lawsuit", "jail"                      |
-| isolation | "don't tell", "keep secret"                        |
-| financial | "gift cards", "wire money"                         |
-
-The model returns JSON scores from 0.0 (absent) to 1.0 (clearly present).
-
-### Prompt
-
-A fixed prompt instructs the model to score tactics from the elder's side of the conversation. Example phrases and a JSON format are provided. Parsing extracts the first `{...}` block; malformed output falls back to all zeros.
-
-### Risk Level Heuristic
-
-| Level   | Condition                                      |
-| ------- | ---------------------------------------------- |
-| **high**| max_tactic > 0.7 **and** stress_score > 0.6     |
-| **medium** | max_tactic > 0.5 **or** stress_score > 0.7  |
-| **low** | otherwise                                       |
-
-### Limitations
-
-- Small model; may miss nuanced or novel phrasings.
-- Greedy decoding; deterministic, no sampling.
-- Depends on transcript quality; ASR errors affect detection.
+The **confusion_score** is published as the stress proxy for dashboard compatibility.
 
 ---
 
-## 3. Pipeline Flow
+## 2. VADER Sentiment
+
+**Library:** `vaderSentiment` (rule-based, no ML)
+
+VADER returns positive, negative, neutral, and compound (-1 to +1) scores. Highly negative compound (≤ -0.5) contributes to risk. Fast (~1ms).
+
+---
+
+## 3. Semantic Similarity
+
+**Model:** `all-MiniLM-L6-v2` (sentence-transformers, 80MB, CPU)
+
+- Pre-computed embeddings for ~20 scam scenario phrases (IRS, bail, virus, etc.).
+- Transcript embedding compared via cosine similarity.
+- Threshold 0.45; ≥0.6 adds significant risk.
+
+---
+
+## 4. Keyword & Phrase Matching
+
+**High-confidence phrases** (instant high risk): e.g. "I'll buy the gift cards", "my social security number is", "I won't tell anyone".
+
+**Regex categories:**
+- `gift_card_payment`, `wire_transfer` — critical
+- `government_threat`, `remote_access`, `urgency_pressure`, `personal_info_request` — concerning
+
+**Benign context reduction:** Patterns like "doctor", "pharmacy", "friend", "appointment" reduce risk when score < 0.5.
+
+---
+
+## 5. Temporal Tracking
+
+- **Escalation:** Risk increasing over last 3 analyses (Δ ≥ 0.2).
+- **Duration:** Extended calls (>5 min) add slight risk.
+- **Repetition:** Tracked in risk history (deque).
+
+---
+
+## 6. Risk Level Heuristic
+
+| Level   | Condition                                                                 |
+| ------- | ------------------------------------------------------------------------- |
+| **high**| risk_score ≥ 0.6, or (high-confidence match AND risk_score ≥ 0.4)        |
+| **medium** | risk_score ≥ 0.3, or ≥2 regex categories matched                      |
+| **low** | otherwise                                                                  |
+
+Contributing factors (additive): high-confidence phrases (+0.6), regex categories (+0.15–0.25 each), semantic similarity (+0.15–0.3), sentiment (+0.1), confusion (+0.1), escalation (+0.15).
+
+---
+
+## 7. Pipeline Flow
 
 ```
-Audio → [stress_detector] → stress_score → [tactic_inference] → risk_level
-         (arousal)                           (max_tactic + stress)
-         ↑
-Transcript → [speech_recognition] → text ────────────────────→
+Transcript → [speech_recognition] → text
+     ↓
+[content_analyzer]
+  ├─ Prosodics (text-based)
+  ├─ VADER sentiment
+  ├─ Phrase + regex matching
+  ├─ Semantic similarity
+  └─ Temporal tracking
+     ↓
+  ├─ PUB :5557 (stress)  → dashboard stress panel
+  └─ PUB :5558 (tactics) → dashboard tactic panel
 ```
 
-Tactic inference runs periodically (default 10 s) when enough transcript words (≥15) are available. It uses the last 5 transcript chunks and the current stress score.
+Content analyzer subscribes to TRANSCRIPT_PORT (5556), accumulates until ≥8 words, runs analysis every 5 s, publishes to both STRESS_PORT and TACTIC_PORT for dashboard compatibility.
+
+---
+
+## Legacy Modules (Deprecated)
+
+- `stress_detector.py` — wav2vec2 arousal-based (replaced by content_analyzer prosodics + sentiment)
+- `tactic_inference.py` — Qwen LLM (replaced by content_analyzer phrase/semantic/regex)

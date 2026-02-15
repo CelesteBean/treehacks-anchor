@@ -1,21 +1,142 @@
 #!/bin/bash
-cd ~/treehacks-anchor && source venv/bin/activate
-pkill -9 -f "src.core" 2>/dev/null || true
-pkill -9 -f "src.viz" 2>/dev/null || true
-fuser -k 5555/tcp 5556/tcp 5557/tcp 5558/tcp 8080/tcp 2>/dev/null || true
+# start_safe.sh - Lightweight analyzer pipeline
+# Replaces stress_detector + tactic_inference with unified content_analyzer
+
+set -e
+
+echo "========================================="
+echo "Anchor Pipeline - Safe Startup"
+echo "========================================="
+
+# ===== AGGRESSIVE CLEANUP =====
+echo "[1/6] Killing existing processes..."
+
+# Kill by module name
+pkill -9 -f "src.core.audio_capture" 2>/dev/null || true
+pkill -9 -f "src.core.speech_recognition" 2>/dev/null || true
+pkill -9 -f "src.core.stress_detector" 2>/dev/null || true
+pkill -9 -f "src.core.tactic_inference" 2>/dev/null || true
+pkill -9 -f "src.core.content_analyzer" 2>/dev/null || true
+pkill -9 -f "src.viz.judges_window" 2>/dev/null || true
+
+# Kill by port (multiple methods for reliability)
+for port in 5555 5556 5557 5558 8080; do
+    fuser -k ${port}/tcp 2>/dev/null || true
+    lsof -ti:${port} | xargs kill -9 2>/dev/null || true
+done
+
+# Clean up any zombie Python processes holding ZMQ sockets
+pkill -9 -f "zmq" 2>/dev/null || true
+
 sleep 3
-rm -f /tmp/*.log
-echo "=== Starting Audio Capture ===" && free -h | head -2
+
+# Verify cleanup
+echo "Verifying ports are free..."
+PORTS_BUSY=0
+for port in 5555 5556 5557 5558 8080; do
+    if lsof -i:$port > /dev/null 2>&1; then
+        echo "  ERROR: Port $port still in use!"
+        lsof -i:$port
+        PORTS_BUSY=1
+    fi
+done
+
+if [ $PORTS_BUSY -eq 1 ]; then
+    echo "Some ports still busy. Waiting 5 more seconds..."
+    sleep 5
+fi
+
+# Clean log files
+rm -f /tmp/audio.log /tmp/speech.log /tmp/analyzer.log /tmp/dashboard.log
+
+# ===== ENVIRONMENT =====
+echo "[2/6] Activating environment..."
+cd ~/treehacks-anchor
+source venv/bin/activate
+
+# ===== CHECK DEPENDENCIES =====
+echo "Checking new dependencies..."
+python -c "import vaderSentiment; print('  vaderSentiment: OK')" 2>/dev/null || {
+    echo "  Installing vaderSentiment..."
+    pip install vaderSentiment --break-system-packages -q
+}
+python -c "import sentence_transformers; print('  sentence_transformers: OK')" 2>/dev/null || {
+    echo "  Installing sentence_transformers..."
+    pip install sentence-transformers --break-system-packages -q
+}
+
+# ===== START COMPONENTS =====
+echo "[3/6] Starting audio capture..."
 python -m src.core.audio_capture --device 0 --native-rate 44100 --seconds 3600 >> /tmp/audio.log 2>&1 &
-sleep 5
-echo "=== Starting Speech Recognition ===" && free -h | head -2
+AUDIO_PID=$!
+sleep 3
+
+# Verify audio started
+if ! kill -0 $AUDIO_PID 2>/dev/null; then
+    echo "  ERROR: Audio capture failed to start!"
+    cat /tmp/audio.log
+    exit 1
+fi
+echo "  Audio capture started (PID: $AUDIO_PID)"
+
+echo "[4/6] Starting speech recognition (Whisper)..."
 python -m src.core.speech_recognition >> /tmp/speech.log 2>&1 &
-sleep 15
-echo "=== Starting Stress Detector ===" && free -h | head -2
-python -m src.core.stress_detector >> /tmp/stress.log 2>&1 &
-sleep 20
-echo "=== Starting Tactic Inference ===" && free -h | head -2
-python -m src.core.tactic_inference --interval 10 >> /tmp/tactics.log 2>&1 &
-sleep 15
-echo "=== All started ===" && free -h | head -2
-ps aux | grep "src.core" | grep -v grep
+SPEECH_PID=$!
+sleep 12
+
+if ! kill -0 $SPEECH_PID 2>/dev/null; then
+    echo "  ERROR: Speech recognition failed to start!"
+    tail -20 /tmp/speech.log
+    exit 1
+fi
+echo "  Speech recognition started (PID: $SPEECH_PID)"
+
+echo "[5/6] Starting content analyzer..."
+python -m src.core.content_analyzer >> /tmp/analyzer.log 2>&1 &
+ANALYZER_PID=$!
+sleep 8
+
+if ! kill -0 $ANALYZER_PID 2>/dev/null; then
+    echo "  ERROR: Content analyzer failed to start!"
+    tail -20 /tmp/analyzer.log
+    exit 1
+fi
+echo "  Content analyzer started (PID: $ANALYZER_PID)"
+
+echo "[6/6] Starting dashboard..."
+python -m src.viz.judges_window >> /tmp/dashboard.log 2>&1 &
+DASHBOARD_PID=$!
+sleep 3
+
+if ! kill -0 $DASHBOARD_PID 2>/dev/null; then
+    echo "  ERROR: Dashboard failed to start!"
+    tail -20 /tmp/dashboard.log
+    exit 1
+fi
+echo "  Dashboard started (PID: $DASHBOARD_PID)"
+
+# ===== SUMMARY =====
+echo ""
+echo "========================================="
+echo "Pipeline Started Successfully!"
+echo "========================================="
+echo "Components:"
+echo "  Audio Capture:      PID $AUDIO_PID"
+echo "  Speech Recognition: PID $SPEECH_PID"
+echo "  Content Analyzer:   PID $ANALYZER_PID"
+echo "  Dashboard:          PID $DASHBOARD_PID"
+echo ""
+echo "Dashboard: http://localhost:8080"
+echo ""
+echo "Logs:"
+echo "  tail -f /tmp/audio.log"
+echo "  tail -f /tmp/speech.log"
+echo "  tail -f /tmp/analyzer.log"
+echo "  tail -f /tmp/dashboard.log"
+echo ""
+echo "To stop: pkill -f 'src.core\|src.viz'"
+echo "========================================="
+
+# Memory check
+FREE_MEM=$(free -m | awk '/^Mem:/{print $7}')
+echo "Available memory: ${FREE_MEM}MB"

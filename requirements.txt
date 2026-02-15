@@ -13,3 +13,7 @@ pydantic==2.5.0
 loguru==0.7.2
 pytest==7.4.3
 pytest-timeout==2.2.0
+vaderSentiment>=3.3.2
+sentence-transformers>=2.2.0
+scikit-learn>=1.0.0
+piper-tts>=1.2.0

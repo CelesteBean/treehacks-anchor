@@ -6,13 +6,9 @@ echo "=== Starting Dashboard ==="
 python -m src.viz.judges_window &
 sleep 3
 
-echo "=== Starting Stress Detector (loading wav2vec2...) ==="
-python -m src.core.stress_detector &
-sleep 30
-
-echo "=== Starting Tactic Inference (loading Qwen...) ==="
-python -m src.core.tactic_inference --interval 10 &
-sleep 45
+echo "=== Starting Content Analyzer (lightweight, ~200MB) ==="
+python -m src.core.content_analyzer --interval 5 &
+sleep 15
 
 echo "=== Starting Speech Recognition (loading Whisper...) ==="
 python -m src.core.speech_recognition &
