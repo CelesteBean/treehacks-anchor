@@ -5,3 +5,10 @@ __pycache__/
 .env
 *.wav
 *.mp3
+
+# Large files
+models/
+*.gguf
+*.onnx
+/tmp/
+*.log

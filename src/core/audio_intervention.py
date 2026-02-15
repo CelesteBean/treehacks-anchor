@@ -9,6 +9,8 @@ Requires: piper-tts, aplay (ALSA)
 from __future__ import annotations
 
 import argparse
+from typing import TYPE_CHECKING
+
 import logging
 import subprocess
 import threading
@@ -17,10 +19,19 @@ import wave
 from pathlib import Path
 from typing import Any, Optional
 
+if TYPE_CHECKING:
+    from src.core.warning_generator import WarningGenerator
+
 import zmq
 from piper import PiperVoice
 
 from src.core.message_bus import TACTIC_PORT, MessageBus
+
+try:
+    from src.core.warning_generator import WarningGenerator
+    _WARNING_GENERATOR_AVAILABLE = True
+except ImportError:
+    _WARNING_GENERATOR_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -174,10 +185,24 @@ class AudioIntervention:
         model_path: str,
         audio_device: str = DEFAULT_AUDIO_DEVICE,
         cooldown: int = COOLDOWN_SECONDS,
+        use_llm: bool = True,
+        llm_model_path: str | None = None,
     ) -> None:
         self.audio_device = audio_device
         self.cooldown_seconds = cooldown
         self.last_intervention_time: float = 0.0
+        self._warning_gen: Optional["WarningGenerator"] = None
+        self._use_llm = False
+
+        if use_llm and _WARNING_GENERATOR_AVAILABLE:
+            try:
+                self._warning_gen = WarningGenerator(model_path=llm_model_path)
+                self._use_llm = True
+                logger.info("LLM warning generator loaded")
+            except (FileNotFoundError, ImportError, OSError) as e:
+                logger.warning("LLM unavailable, using templates: %s", e)
+        elif use_llm and not _WARNING_GENERATOR_AVAILABLE:
+            logger.warning("llama-cpp-python not installed, using templates")
 
         model_file = Path(model_path)
         if not model_file.is_absolute():
@@ -269,26 +294,52 @@ class AudioIntervention:
 
         return True
 
+    def _generate_warning(
+        self,
+        threat_type: str,
+        risk_factors: list[str],
+        transcript: str,
+        entities: dict[str, str],
+    ) -> str:
+        """Generate warning text: try LLM first, fallback to template."""
+        if self._use_llm and self._warning_gen:
+            try:
+                return self._warning_gen.generate_warning(
+                    threat_type=threat_type,
+                    risk_factors=risk_factors,
+                    recent_transcript=transcript or "",
+                )
+            except Exception as e:
+                logger.error("LLM generation failed: %s", e)
+
+        template = INTERVENTION_TEMPLATES.get(
+            threat_type, INTERVENTION_TEMPLATES["generic_high_risk"]
+        )
+        try:
+            return template.format(**entities)
+        except KeyError:
+            return INTERVENTION_TEMPLATES["generic_high_risk"]
+
     def intervene(self, analysis: dict[str, Any]) -> None:
         if not self.should_intervene(analysis):
             return
 
         scam_type = self.detect_scam_type(analysis)
         entities = self.extract_entities(analysis)
+        risk_factors = analysis.get("risk_factors", [])
+        transcript = analysis.get("transcript") or ""
 
-        template = INTERVENTION_TEMPLATES.get(
-            scam_type, INTERVENTION_TEMPLATES["generic_high_risk"]
+        warning_text = self._generate_warning(
+            threat_type=scam_type,
+            risk_factors=risk_factors,
+            transcript=transcript,
+            entities=entities,
         )
-
-        try:
-            warning_text = template.format(**entities)
-        except KeyError as e:
-            logger.warning("Template fill failed for %s, using generic", e)
-            warning_text = INTERVENTION_TEMPLATES["generic_high_risk"]
 
         logger.info(
             "[INTERVENTION] INTERVENTION [%s]: %s...",
-            scam_type, warning_text[:60],
+            scam_type,
+            warning_text[:60],
         )
         logger.debug(
             "[INTERVENTION] [TTS] generating: %r",
@@ -321,9 +372,17 @@ class AudioInterventionService:
         model_path: str = DEFAULT_MODEL_PATH,
         audio_device: str = DEFAULT_AUDIO_DEVICE,
         cooldown: int = COOLDOWN_SECONDS,
+        use_llm: bool = True,
+        llm_model_path: str | None = None,
     ) -> None:
         self.bus = bus or MessageBus()
-        self._intervention = AudioIntervention(model_path, audio_device, cooldown)
+        self._intervention = AudioIntervention(
+            model_path,
+            audio_device,
+            cooldown,
+            use_llm=use_llm,
+            llm_model_path=llm_model_path,
+        )
         self._subscriber: Optional[zmq.Socket] = None
         self._stop = threading.Event()
         self.running = False
@@ -428,6 +487,16 @@ if __name__ == "__main__":
         default=COOLDOWN_SECONDS,
         help="Seconds between interventions (default: 30)",
     )
+    parser.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Disable LLM, use static templates only",
+    )
+    parser.add_argument(
+        "--llm-model",
+        default=None,
+        help="Path to GGUF model for LLM warnings (default: models/qwen-0.5b/qwen2.5-0.5b-instruct-q4_k_m.gguf)",
+    )
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -438,6 +507,8 @@ if __name__ == "__main__":
         model_path=args.model,
         audio_device=args.device,
         cooldown=args.cooldown,
+        use_llm=not args.no_llm,
+        llm_model_path=args.llm_model,
     )
     try:
         service.start()

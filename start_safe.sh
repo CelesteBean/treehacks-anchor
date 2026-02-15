@@ -106,6 +106,8 @@ fi
 echo "  Content analyzer started (PID: $ANALYZER_PID)"
 
 echo "[6/8] Starting audio intervention (Piper TTS)..."
+# LLM warnings: ensure models/qwen-0.5b/ is populated via scripts/download_qwen_model.sh
+# Use --no-llm to disable LLM and use static templates only
 python -m src.core.audio_intervention --debug >> /tmp/intervention.log 2>&1 &
 INTERVENTION_PID=$!
 sleep 3

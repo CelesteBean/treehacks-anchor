@@ -18,3 +18,7 @@ sentence-transformers>=2.2.0
 scikit-learn>=1.0.0
 piper-tts>=1.2.0
 psutil>=5.9.0
+
+# Optional: LLM for context-aware scam warnings (Jetson)
+# Install with CUDA: CMAKE_ARGS="-DLLAMA_CUDA=on" pip install llama-cpp-python --break-system-packages
+llama-cpp-python>=0.2.0
