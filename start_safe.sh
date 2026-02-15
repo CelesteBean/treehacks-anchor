@@ -108,7 +108,15 @@ echo "  Content analyzer started (PID: $ANALYZER_PID)"
 echo "[6/8] Starting audio intervention (Piper TTS)..."
 # LLM warnings: ensure models/qwen-0.5b/ is populated via scripts/download_qwen_model.sh
 # Use --no-llm to disable LLM and use static templates only
-python -m src.core.audio_intervention --debug >> /tmp/intervention.log 2>&1 &
+# Set USE_LLM=false to disable LLM warnings: USE_LLM=false ./start_safe.sh
+USE_LLM=${USE_LLM:-true}
+if [ "$USE_LLM" = "false" ]; then
+    echo "  LLM disabled via USE_LLM=false, using static templates"
+    python -m src.core.audio_intervention --no-llm --debug >> /tmp/intervention.log 2>&1 &
+else
+    echo "  LLM enabled (~700ms template completion)"
+    python -m src.core.audio_intervention --debug >> /tmp/intervention.log 2>&1 &
+fi
 INTERVENTION_PID=$!
 sleep 3
 

@@ -1,7 +1,7 @@
-"""Lightweight LLM warning generator.
-
-Generates context-aware scam warnings in <500ms using Qwen2.5-0.5B-Instruct.
-Falls back to static templates if the LLM is unavailable or fails.
+"""
+Lightweight LLM warning generator using template completion.
+Provides consistent alert prefix, LLM completes with contextual advice.
+~700ms per warning on Jetson Orin Nano.
 """
 
 from __future__ import annotations
@@ -12,58 +12,41 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Fallback templates (same semantics as audio_intervention.INTERVENTION_TEMPLATES)
-FALLBACK_TEMPLATES = {
-    "gift_card": (
-        "Warning. This caller is asking for gift card payments. "
-        "Legitimate organizations never request gift cards. Please hang up."
-    ),
-    "government_impersonation": (
-        "Stop. Government agencies never call demanding immediate payment. "
-        "This is likely a scam. Please hang up."
-    ),
-    "tech_support": (
-        "Warning. This caller wants access to your computer. "
-        "Legitimate tech companies don't cold call. Please hang up."
-    ),
-    "grandparent_scam": (
-        "Stop. Please verify this is really your family member "
-        "by calling them directly on a number you trust."
-    ),
-    "wire_transfer": (
-        "Stop. Someone is asking you to wire money. "
-        "These payments cannot be reversed. Please hang up."
-    ),
-    "romance_scam": (
-        "Please be cautious. Sending money to someone you have not met in person "
-        "is very risky."
-    ),
-    "generic_high_risk": (
-        "Warning. This call shows signs of a scam. "
-        "Do not share personal information or send money."
-    ),
+# Alert prefixes by threat type - we control framing, LLM completes
+ALERT_TEMPLATES = {
+    "gift_card": "Warning. This caller is asking you to buy gift cards as payment.",
+    "government_impersonation": "Stop. This caller claims to be from the government demanding payment.",
+    "tech_support": "Warning. This caller wants remote access to your computer.",
+    "grandparent_scam": "Stop. This caller claims to be a family member in trouble.",
+    "financial": "Warning. This caller is pressuring you to send money.",
+    "isolation": "Warning. This caller is asking you to keep secrets from your family.",
+    "urgency": "Warning. This caller is creating false urgency to pressure you.",
+    "authority": "Stop. This caller is impersonating an authority figure.",
+    "wire_transfer": "Stop. This caller is asking you to wire money or send cryptocurrency.",
+    "romance_scam": "Warning. This caller may be attempting a romance scam.",
+    "generic_high_risk": "Warning. This call shows signs of a scam.",
+}
+
+# Static fallback completions if LLM fails
+FALLBACK_COMPLETIONS = {
+    "gift_card": "You should hang up. No legitimate company asks for gift card payments.",
+    "government_impersonation": "You should hang up. The real government never demands immediate phone payments.",
+    "tech_support": "You should hang up. Do not let strangers access your computer.",
+    "grandparent_scam": "You should hang up and call your family member directly to verify.",
+    "financial": "You should hang up and speak with a trusted family member first.",
+    "isolation": "You should tell a family member about this call right away.",
+    "urgency": "You should hang up. Take time to think before making any decisions.",
+    "authority": "You should hang up and contact the agency directly using a number you trust.",
+    "wire_transfer": "You should hang up. Wire transfers and cryptocurrency cannot be reversed.",
+    "romance_scam": "You should not send money to someone you have not met in person.",
+    "generic_high_risk": "You should hang up and speak with someone you trust before taking any action.",
 }
 
 DEFAULT_MODEL_PATH = "models/qwen-0.5b/qwen2.5-0.5b-instruct-q4_k_m.gguf"
 
 
-def _safe_extract_phrases(risk_factors: list[str], max_items: int = 3) -> list[str]:
-    """Extract human-readable phrases from risk factor strings."""
-    phrases: list[str] = []
-    for rf in risk_factors[:max_items]:
-        if ": " in rf:
-            part = rf.split(": ", 1)[1]
-            # Remove surrounding quotes if present
-            if part.startswith("'") and part.endswith("'"):
-                part = part[1:-1]
-            phrases.append(part.strip())
-        else:
-            phrases.append(rf.strip())
-    return phrases
-
-
 class WarningGenerator:
-    """Generates context-aware scam warnings via on-device LLM."""
+    """Generates context-aware scam warnings via on-device LLM using template completion."""
 
     def __init__(self, model_path: str | None = None) -> None:
         """Load the GGUF model. Raises if the model file is missing or load fails."""
@@ -72,16 +55,17 @@ class WarningGenerator:
             raise FileNotFoundError(f"LLM model not found: {resolved}")
 
         logger.info("Loading LLM from %s", resolved)
+        start = time.time()
+        
         try:
             from llama_cpp import Llama
 
             self._llm = Llama(
                 model_path=str(resolved),
-                n_ctx=512,
-                n_threads=4,
-                n_gpu_layers=20,
+                n_ctx=128,        # Small context for speed
+                n_threads=6,      # Use more CPU threads
+                n_gpu_layers=50,  # Full GPU offload
                 verbose=False,
-                chat_format="chatml",
             )
         except ImportError as e:
             raise ImportError(
@@ -89,7 +73,8 @@ class WarningGenerator:
                 "Install with: CMAKE_ARGS='-DLLAMA_CUDA=on' pip install llama-cpp-python"
             ) from e
 
-        logger.info("LLM loaded successfully")
+        self.load_time = time.time() - start
+        logger.info("LLM loaded in %.1fs", self.load_time)
 
     def _resolve_model_path(self, path: str) -> Path:
         """Resolve model path relative to project root."""
@@ -102,71 +87,75 @@ class WarningGenerator:
     def generate_warning(
         self,
         threat_type: str,
-        risk_factors: list[str],
-        recent_transcript: str,
-        max_tokens: int = 60,
+        detected_phrases: list[str] | None = None,
+        risk_factors: list[str] | None = None,
+        recent_transcript: str | None = None,
     ) -> str:
-        """Generate a contextual warning message.
-
-        Args:
-            threat_type: e.g., "gift_card", "government_impersonation", "tech_support"
-            risk_factors: e.g., ["Tier 1: buy a gift card", "Tier 2: similarity 0.56"]
-            recent_transcript: Last 50-100 words of conversation
-
-        Returns:
-            Warning text suitable for TTS (2-3 sentences, <15 seconds spoken)
         """
-        key_phrases = _safe_extract_phrases(risk_factors)
-        transcript_snippet = recent_transcript[-300:] if recent_transcript else "(no transcript)"
-
-        system_prompt = (
-            "You are a protective AI assistant. Generate a brief, calm warning "
-            "for an elderly person who may be on a scam call. Keep it under 30 words."
-        )
-        user_prompt = (
-            f"Threat type: {threat_type}\n"
-            f"Suspicious phrases: {', '.join(key_phrases) if key_phrases else 'general scam indicators'}\n"
-            f"Recent conversation: \"{transcript_snippet}\"\n\n"
-            "Generate a 2-sentence warning that: "
-            "1) Alerts them to the specific danger without panic, "
-            "2) Gives one concrete action (e.g., hang up, verify). "
-            "Output only the warning text, nothing else."
-        )
-
+        Generate contextual warning using template completion.
+        
+        Args:
+            threat_type: e.g., "gift_card", "government_impersonation"
+            detected_phrases: Optional list of detected scam phrases (alias for risk_factors)
+            risk_factors: Optional list of risk factors (kept for API compatibility)
+            recent_transcript: Optional recent transcript (unused in template approach but kept for API compatibility)
+            
+        Returns:
+            Complete warning text suitable for TTS (~2-3 sentences)
+        """
+        # Get template prefix for this threat type
+        template = ALERT_TEMPLATES.get(threat_type, ALERT_TEMPLATES["generic_high_risk"])
+        
+        # Build completion prompt - we provide the prefix, LLM completes with protective advice
+        # The key is framing: "You should hang up" or "You should not" guides toward protective actions
+        prompt = f"{template} You should hang up and"
+        
         start = time.perf_counter()
+        
         try:
-            response = self._llm.create_chat_completion(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                max_tokens=max_tokens,
-                temperature=0.3,
-                stop=["\n\n", "Warning:", "Threat", "<|"],
+            response = self._llm(
+                prompt,
+                max_tokens=20,      # Short completion
+                temperature=0.2,    # More consistent output
+                stop=["\n", ".", "!", "?", "\"", "'"],  # Stop at sentence end or quotes
             )
+            
+            completion = response["choices"][0]["text"].strip()
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            
+            # Ensure completion ends properly
+            if completion and not completion.endswith((".", "!", "?")):
+                completion += "."
+            
+            # Combine template + completion
+            if completion and len(completion) > 3:
+                warning = f"{template} You should hang up and {completion}"
+            else:
+                # LLM returned empty/bad output, use fallback
+                fallback = FALLBACK_COMPLETIONS.get(
+                    threat_type, FALLBACK_COMPLETIONS["generic_high_risk"]
+                )
+                warning = f"{template} {fallback}"
+            
+            logger.info("[LLM] %.0fms: %s...", elapsed_ms, warning[:60])
+            return warning
+            
         except Exception as e:
-            logger.warning("LLM generation failed: %s", e)
-            return self._fallback_warning(threat_type)
+            logger.error("LLM generation failed: %s", e)
+            return self.get_fallback_warning(threat_type)
 
-        # Chat completion returns choices[0]["message"]["content"]
-        choices = response.get("choices", [])
-        if not choices:
-            return self._fallback_warning(threat_type)
+    def get_fallback_warning(self, threat_type: str) -> str:
+        """Get static fallback warning without LLM."""
+        template = ALERT_TEMPLATES.get(threat_type, ALERT_TEMPLATES["generic_high_risk"])
+        fallback = FALLBACK_COMPLETIONS.get(
+            threat_type, FALLBACK_COMPLETIONS["generic_high_risk"]
+        )
+        return f"{template} {fallback}"
 
-        raw = choices[0].get("message", {}).get("content", "")
-        warning = (raw or "").strip()
-        if not warning or len(warning) > 200:
-            warning = self._fallback_warning(threat_type)
-
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        logger.info("[LLM] Generated warning in %.0fms: %s...", elapsed_ms, warning[:50])
-        return warning
-
+    # Alias for backward compatibility
     def _fallback_warning(self, threat_type: str) -> str:
         """Static fallback when LLM output is invalid or generation fails."""
-        return FALLBACK_TEMPLATES.get(
-            threat_type, FALLBACK_TEMPLATES["generic_high_risk"]
-        )
+        return self.get_fallback_warning(threat_type)
 
 
 # ---------------------------------------------------------------------------
@@ -178,10 +167,22 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+    
     gen = WarningGenerator()
-    warning = gen.generate_warning(
-        threat_type="gift_card",
-        risk_factors=["Tier 1: buy a gift card", "Tier 2: 0.56 similarity to gift card scam"],
-        recent_transcript="Yes I will buy the gift cards right now. How many do you need?",
-    )
-    print(f"Warning: {warning}")
+    
+    test_threats = [
+        "gift_card",
+        "government_impersonation",
+        "tech_support",
+        "grandparent_scam",
+        "financial",
+    ]
+    
+    print("\n=== Testing Warning Generator ===\n")
+    for threat in test_threats:
+        start = time.perf_counter()
+        warning = gen.generate_warning(threat)
+        elapsed = (time.perf_counter() - start) * 1000
+        print(f"{threat} ({elapsed:.0f}ms):")
+        print(f"  \"{warning}\"")
+        print()
