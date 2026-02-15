@@ -1,6 +1,6 @@
 """Tactic inference module.
 
-Phase 1: Core LLM inference — loads Qwen2.5-1.5B-Instruct on CUDA and
+Phase 1: Core LLM inference — loads Qwen2.5-0.5B-Instruct on CUDA and
 analyzes transcripts for manipulation tactics.
 
 Phase 2: ZeroMQ service wrapper — subscribes to ``transcript`` and
@@ -74,7 +74,7 @@ class TacticConfig:
         tactic_threshold: Minimum score to consider a tactic "active" (reserved for Phase 2).
     """
 
-    model_name: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    model_name: str = "Qwen/Qwen2.5-0.5B-Instruct"
     device: str = "cuda"
     max_new_tokens: int = 80
     tactic_threshold: float = 0.5
@@ -83,12 +83,18 @@ class TacticConfig:
 # Canonical list of manipulation tactics we detect.
 TACTIC_KEYS = ("urgency", "authority", "fear", "isolation", "financial")
 
+# Inference gating and context limits.
+MIN_WORDS_FOR_INFERENCE = 15  # Don't analyze until we have enough context
+MAX_TRANSCRIPT_AGE_SECONDS = 60  # Rolling window - ignore older transcripts
+MAX_CONTEXT_WORDS = 200  # Limit context size to control latency
+
 
 class TacticInference:
     """Phase 1: Core inference only. ZeroMQ added in Phase 2."""
 
     TACTIC_PROMPT = (
-        "Detect phone scam tactics from an elder's statements (their side only).\n\n"
+        "Analyze this phone conversation transcript for scam tactics "
+        "(elder's statements only).\n\n"
         "Score 0.0 (absent) to 1.0 (clearly present):\n"
         "- urgency: time pressure ('pay today','right now')\n"
         "- authority: official claims ('IRS','police','government')\n"
@@ -145,7 +151,8 @@ class TacticInference:
         """
         start = time.perf_counter()
 
-        # Build the prompt from the last 5 transcripts (sliding window).
+        # Build the prompt from transcript(s). Single concatenated context
+        # or multiple fragments both supported.
         transcript_text = "\n".join(f"- {t}" for t in transcripts[-5:])
         prompt = self.TACTIC_PROMPT.format(transcripts=transcript_text)
 
@@ -248,7 +255,7 @@ class TacticInferenceService:
         self.inference_interval = inference_interval
 
         # Shared state protected by ``_lock``.
-        self._transcripts: deque[str] = deque(maxlen=20)
+        self._transcripts: deque[tuple[float, str]] = deque(maxlen=50)
         self._current_stress: float = 0.5
         self._lock = Lock()
 
@@ -329,23 +336,27 @@ class TacticInferenceService:
             events = dict(poller.poll(timeout=500))
 
             if self._sub_transcript in events:
+                logger.debug("Received message on transcript socket")
                 self._handle_transcript()
 
             if self._sub_stress in events:
+                logger.debug("Received message on stress socket")
                 self._handle_stress()
 
     def _handle_transcript(self) -> None:
         """Decode a transcript multipart frame and buffer the text."""
         try:
             frames: list[bytes] = self._sub_transcript.recv_multipart(zmq.NOBLOCK)
-            envelope: dict[str, Any] = json.loads(frames[1].decode("utf-8"))
+            raw_body: str = frames[1].decode("utf-8")
+            logger.debug("Transcript raw message: %s", raw_body[:500] + ("..." if len(raw_body) > 500 else ""))
+            envelope: dict[str, Any] = json.loads(raw_body)
             data = envelope.get("data", {})
             text = data.get("text", "").strip()
             if text and data.get("is_final", False):
                 with self._lock:
-                    self._transcripts.append(text)
-                logger.debug("Transcript buffered (%d total): %s",
-                             len(self._transcripts), text[:60])
+                    self._transcripts.append((time.time(), text))
+                logger.info("Transcript buffered (%d total): %s",
+                            len(self._transcripts), text[:60])
         except Exception as exc:  # noqa: BLE001
             logger.warning("Error handling transcript message: %s", exc)
 
@@ -353,7 +364,9 @@ class TacticInferenceService:
         """Decode a stress multipart frame and update current score."""
         try:
             frames: list[bytes] = self._sub_stress.recv_multipart(zmq.NOBLOCK)
-            envelope: dict[str, Any] = json.loads(frames[1].decode("utf-8"))
+            raw_body: str = frames[1].decode("utf-8")
+            logger.debug("Stress raw message: %s", raw_body[:300] + ("..." if len(raw_body) > 300 else ""))
+            envelope: dict[str, Any] = json.loads(raw_body)
             data = envelope.get("data", {})
             score = data.get("stress_score", data.get("score", 0.5))
             with self._lock:
@@ -362,35 +375,67 @@ class TacticInferenceService:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Error handling stress message: %s", exc)
 
+    def _build_conversation_context(self) -> tuple[str, int]:
+        """Build concatenated conversation from recent transcripts.
+
+        Returns (context_string, word_count).
+        Filters out transcripts older than MAX_TRANSCRIPT_AGE_SECONDS.
+        """
+        now = time.time()
+        cutoff = now - MAX_TRANSCRIPT_AGE_SECONDS
+
+        # Filter recent transcripts
+        recent = [(ts, text) for ts, text in self._transcripts if ts > cutoff]
+
+        # Concatenate into conversation
+        conversation = " ".join(text for _, text in recent)
+
+        # Trim to max words if needed
+        words = conversation.split()
+        if len(words) > MAX_CONTEXT_WORDS:
+            words = words[-MAX_CONTEXT_WORDS:]  # Keep most recent
+            conversation = " ".join(words)
+
+        return conversation, len(words)
+
     # ------------------------------------------------------------------
     # Inference loop (background thread)
     # ------------------------------------------------------------------
 
     def _inference_loop(self) -> None:
         """Periodically run LLM inference and publish results."""
-        last_count = 0
+        last_context = ""
 
         while not self._stop_event.wait(timeout=self.inference_interval):
             with self._lock:
-                current_count = len(self._transcripts)
-                if current_count == 0 or current_count == last_count:
-                    continue  # No new transcripts since last run
-                transcripts = list(self._transcripts)
+                context, word_count = self._build_conversation_context()
                 stress = self._current_stress
 
-            last_count = current_count
+            # Skip if not enough context or no change
+            if word_count < MIN_WORDS_FOR_INFERENCE:
+                logger.debug(
+                    "Skipping inference: only %d words (need %d)",
+                    word_count, MIN_WORDS_FOR_INFERENCE,
+                )
+                continue
+
+            if context == last_context:
+                continue  # No new content
+
+            last_context = context
 
             logger.info(
-                "Running inference on %d transcripts (stress=%.2f)",
-                len(transcripts), stress,
+                "Running inference on %d words (stress=%.2f): %s...",
+                word_count, stress, context[:80],
             )
-            result = self._engine.analyze(transcripts, stress_score=stress)
+
+            result = self._engine.analyze([context], stress_score=stress)
 
             tactic_data: dict[str, Any] = {
                 "tactics": result["tactics"],
                 "risk_level": result["risk_level"],
                 "stress_score": stress,
-                "transcript_count": len(transcripts),
+                "word_count": word_count,
                 "inference_time_ms": result["inference_time_ms"],
             }
             self.bus.publish(self._publisher, topic="tactics", data=tactic_data)

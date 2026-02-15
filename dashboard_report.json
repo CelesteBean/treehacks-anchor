@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-02-14T13:23:01.885426",
+  "dashboard_url": "http://localhost:8080",
+  "status": "OPERATIONAL",
+  "findings": {
+    "server": "OPERATIONAL",
+    "layout": "4 PANELS CONFIGURED",
+    "javascript": "NO ERRORS",
+    "tactic_panel": {
+      "state": "WAITING",
+      "last_server_data": {
+        "risk": "high",
+        "urgency": 0.9,
+        "authority": 0.7,
+        "fear": 0.8,
+        "isolation": 0.1,
+        "financial": 0.6,
+        "timestamp": "2026-02-14T13:20:28"
+      },
+      "note": "Data was emitted before browser connected"
+    },
+    "theme": "DARK_PROFESSIONAL"
+  }
+}

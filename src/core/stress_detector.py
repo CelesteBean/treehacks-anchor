@@ -467,7 +467,7 @@ if __name__ == "__main__":
           f"confidence={result['confidence']:.3f}")
 
     # -- 4. Subscribe and analyse for 30 seconds -----------------------------
-    RUN_SECONDS: float = 30.0
+    RUN_SECONDS: float = 3600.0
     print(f"\n=== Listening for audio on port {AUDIO_PORT} for {RUN_SECONDS}s ===")
     print("  (start audio_capture in another terminal to feed audio)\n")
 

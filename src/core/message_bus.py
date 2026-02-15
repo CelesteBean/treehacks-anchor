@@ -143,6 +143,9 @@ class MessageBus:
             socket.setsockopt_string(zmq.SUBSCRIBE, topic)
             logger.debug("Subscribed to topic %r", topic)
 
+        # ZeroMQ slow-joiner: subscribers can miss early messages. Brief sleep
+        # allows the connection to settle before the caller starts receiving.
+        time.sleep(0.5)
         return socket
 
     # -- Publish / Receive ---------------------------------------------------

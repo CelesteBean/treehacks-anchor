@@ -188,6 +188,11 @@ class SpeechRecognizer:
             language=self.config.language,
             beam_size=1,           # greedy — fastest on Jetson
             vad_filter=True,       # skip silence for lower latency
+            vad_parameters=dict(
+                threshold=0.3,          # Lower from default 0.5 - more sensitive to speech
+                min_speech_duration_ms=100,  # Shorter minimum speech segments
+                min_silence_duration_ms=300,  # Shorter silence gaps allowed
+            ),
         )
 
         # Materialise the segment generator.
@@ -286,6 +291,7 @@ class SpeechRecognizer:
 
                 # Publish.
                 transcript["timestamp"] = datetime.now(timezone.utc).isoformat()
+                transcript["is_final"] = True  # Batch transcripts are always final (tactic_inference requires this)
                 self.bus.publish(self._publisher, topic="transcript", data=transcript)
 
 
@@ -328,7 +334,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # -- 3. Subscribe and transcribe for 30 seconds --------------------------
-    RUN_SECONDS: float = 30.0
+    RUN_SECONDS: float = 3600.0
     print(f"\n=== Listening for audio on port {AUDIO_PORT} for {RUN_SECONDS}s ===")
     print("  (start audio_capture in another terminal to feed audio)\n")
 
