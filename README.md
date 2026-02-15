@@ -561,7 +561,7 @@ Real-time web dashboard for monitoring and demonstration.
 │  │  │                     │  └─────────────────┴─────────────────────┘  │  │ │
 │  │  └─────────────────────┴─────────────────────────────────────────────┘  │ │
 │  │                                                                          │ │
-│  │  TAB: [Pipeline] [System Performance]                                    │ │
+│  │  TAB: [Pipeline] [System Performance] [Architecture] [About]             │ │
 │  │                                                                          │ │
 │  └──────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                │
@@ -758,8 +758,10 @@ Access the dashboard at **http://localhost:8080** (or via LAN IP).
 - **Audio Level Meter**: Microphone input visualization
 - **Speech Patterns**: WPM, hesitations, uncertainty detection
 - **Scam Tactic Detection**: Risk level and tactic breakdown
-- **Scenario Teleprompter**: Demo scripts for testing
-- **System Performance Tab**: CPU, RAM, GPU, power monitoring
+- **Scenario Teleprompter**: Demo scripts for testing (SCAM/BENIGN toggle)
+- **System Performance Tab**: CPU, RAM, GPU, power monitoring with real-time charts
+- **Architecture Tab**: Technical deep-dive for judges (edge computing rationale, pipeline diagram, ZeroMQ ports, AI models)
+- **About Tab**: Project overview with problem statement and value propositions
 
 ### Keyboard Shortcuts
 

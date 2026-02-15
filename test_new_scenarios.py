@@ -52,6 +52,7 @@ TEST_CASES = [
     ("You're in jail? How did this happen?", "medium", "Grandchild Line 3 (jail mention)"),
     ("Of course I'll help you with bail money, sweetie.", "medium", "Grandchild Line 4"),
     ("Don't worry, I won't tell your parents about this.", "high", "Grandchild Line 5"),
+    ("Don't worry, I won't tell my parents about this.", "high", "Grandchild Line 5b (regression)"),
     ("How much do you need for the bail?", "medium", "Grandchild Line 6"),
     ("I can go to the store and get that for you.", "low", "Grandchild Line 7"),
     

@@ -392,7 +392,6 @@ class AudioInterventionService:
             llm_model_path=llm_model_path,
         )
         self._subscriber: Optional[zmq.Socket] = None
-        self._publisher: Optional[zmq.Socket] = None  # Publish latency metrics
         self._stop = threading.Event()
         self.running = False
         self._last_llm_ms: float | None = None  # Track last LLM generation time
@@ -405,10 +404,9 @@ class AudioInterventionService:
             ports=[TACTIC_PORT],
             topics=["tactics"],
         )
-        self._publisher = self.bus.create_publisher(TACTIC_PORT)
         self.running = True
         logger.info(
-            "AudioInterventionService started — SUB/PUB tactics :%d",
+            "AudioInterventionService started — SUB tactics :%d",
             TACTIC_PORT,
         )
 
@@ -427,9 +425,6 @@ class AudioInterventionService:
         if self._subscriber:
             self._subscriber.close()
             self._subscriber = None
-        if self._publisher:
-            self._publisher.close()
-            self._publisher = None
 
     def _main_loop(self) -> None:
         msg_count = 0
@@ -472,7 +467,7 @@ class AudioInterventionService:
 
             self._intervention.intervene(data)
 
-            # Track and publish latency metrics after intervention
+            # Track latency metrics after intervention
             if will_intervene:
                 # Track LLM generation time
                 if self._intervention._use_llm and self._intervention._warning_gen:
@@ -480,19 +475,6 @@ class AudioInterventionService:
                 
                 # Track TTS synthesis time
                 self._last_tts_ms = self._intervention.last_tts_ms
-                
-                # Publish latency metrics to ZMQ for system_monitor
-                if self._publisher and (self._last_llm_ms is not None or self._last_tts_ms is not None):
-                    latency_data = {
-                        "llm_ms": self._last_llm_ms,
-                        "tts_ms": self._last_tts_ms,
-                    }
-                    self.bus.publish(self._publisher, "latency", latency_data)
-                    logger.debug(
-                        "[INTERVENTION] Published latency: llm=%.0fms tts=%.0fms",
-                        self._last_llm_ms or 0,
-                        self._last_tts_ms or 0,
-                    )
 
 
 # ---------------------------------------------------------------------------

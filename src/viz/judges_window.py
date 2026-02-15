@@ -180,6 +180,26 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     animation: pulse-dot 2s ease-in-out infinite;
   }
 
+  /* ── Demo View Badge ────────────────────────────────────────────── */
+  .demo-view-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #ff6b6b 0%, #e17055 100%);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-top: 8px;
+    box-shadow: 0 2px 8px rgba(225, 112, 85, 0.4);
+    animation: pulse-badge 2s ease-in-out infinite;
+  }
+  @keyframes pulse-badge {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.85; transform: scale(1.02); }
+  }
+
   /* ── Component status panel ───────────────────────────────────── */
   .status-panel {
     display: flex;
@@ -535,15 +555,19 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     padding: 0;
   }
   #tab-pipeline.dashboard-grid {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    grid-template-rows: 1fr;
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-width: 0;
     overflow: hidden;
   }
+  .pipeline-main-row {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
   .script-panel {
-    grid-row: 1 / -1;
     width: 300px;
     min-width: 300px;
     max-width: 300px;
@@ -552,6 +576,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     border-right: 1px solid var(--border);
     background: rgba(0, 0, 0, 0.15);
     overflow: hidden;
+    flex-shrink: 0;
   }
   .dashboard-panel {
     flex: 1;
@@ -714,11 +739,11 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     padding: 16px;
   }
   .script-line {
-    padding: 12px;
-    margin: 8px 0;
+    padding: 8px 10px;
+    margin: 6px 0;
     border-radius: 4px;
-    font-size: 18px;
-    line-height: 1.4;
+    font-size: 13px;
+    line-height: 1.35;
     transition: background 0.2s;
     color: var(--dim);
   }
@@ -850,14 +875,34 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     font-weight: 300;
   }
 
+  /* Hero top row: Problem + Demo side by side */
+  .hero-top-row {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    align-items: stretch;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 800px) {
+    .hero-top-row {
+      flex-direction: column;
+      align-items: center;
+    }
+  }
+
   /* Problem banner - the hook */
   .problem-banner {
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     border: 2px solid var(--anchor-teal);
     border-radius: 16px;
-    padding: 36px 24px;
-    margin-bottom: 40px;
+    padding: 28px 24px;
     box-shadow: 0 0 30px rgba(0, 217, 192, 0.15);
+    flex: 1;
+    max-width: 400px;
+    min-width: 280px;
+    margin-bottom: 0;
   }
 
   .stat-large {
@@ -1078,11 +1123,15 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     background: linear-gradient(135deg, rgba(0, 217, 192, 0.12) 0%, rgba(0, 217, 192, 0.04) 100%);
     border: 2px solid var(--anchor-teal);
     border-radius: 20px;
-    padding: 40px 32px;
-    margin: 48px auto;
-    max-width: 600px;
+    padding: 28px 24px;
     position: relative;
     overflow: hidden;
+    flex: 1;
+    max-width: 400px;
+    min-width: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .cta-pulse {
@@ -1152,23 +1201,16 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   }
 
   /* Entrance animations */
-  .hero-page .hero-header,
-  .hero-page .problem-banner,
+  .hero-page .hero-top-row,
   .hero-page .value-props,
-  .hero-page .hero-section,
-  .hero-page .demo-cta,
   .hero-page .hero-footer {
     animation: heroFadeInUp 0.7s ease-out forwards;
     opacity: 0;
   }
 
-  .hero-page .hero-header { animation-delay: 0.1s; }
-  .hero-page .problem-banner { animation-delay: 0.2s; }
-  .hero-page .value-props { animation-delay: 0.35s; }
-  .hero-page .hero-section:nth-of-type(1) { animation-delay: 0.45s; }
-  .hero-page .hero-section:nth-of-type(2) { animation-delay: 0.55s; }
-  .hero-page .demo-cta { animation-delay: 0.65s; }
-  .hero-page .hero-footer { animation-delay: 0.75s; }
+  .hero-page .hero-top-row { animation-delay: 0.1s; }
+  .hero-page .value-props { animation-delay: 0.25s; }
+  .hero-page .hero-footer { animation-delay: 0.4s; }
 
   @keyframes heroFadeInUp {
     from {
@@ -1725,13 +1767,42 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     opacity: 0;
   }
 
-  .arch-page .arch-section:nth-of-type(1) { animation-delay: 0.1s; }
-  .arch-page .arch-section:nth-of-type(2) { animation-delay: 0.2s; }
-  .arch-page .arch-section:nth-of-type(3) { animation-delay: 0.3s; }
-  .arch-page .arch-section:nth-of-type(4) { animation-delay: 0.4s; }
-  .arch-page .arch-section:nth-of-type(5) { animation-delay: 0.5s; }
-  .arch-page .arch-section:nth-of-type(6) { animation-delay: 0.6s; }
-  .arch-page .arch-section:nth-of-type(7) { animation-delay: 0.7s; }
+  /* Architecture Sub-Navigation */
+  .arch-subnav {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+  }
+  .arch-subnav-btn {
+    padding: 10px 20px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #1a1a1a;
+    color: #888;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .arch-subnav-btn:hover {
+    background: #252525;
+    color: #ccc;
+    border-color: #555;
+  }
+  .arch-subnav-btn.active {
+    background: var(--anchor-teal);
+    color: #000;
+    border-color: var(--anchor-teal);
+    font-weight: 600;
+  }
+  .arch-panel {
+    animation: heroFadeInUp 0.5s ease-out forwards;
+  }
 </style>
 </head>
 <body>
@@ -1746,6 +1817,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 <header>
   <h1><span class="status-dot" id="status-dot"></span>.anchor</h1>
   <p>We only hear one side. Watch what we know.</p>
+  <div class="demo-view-badge">DEMO VIEW</div>
 </header>
 
 <div class="status-panel" id="status-panel">
@@ -1763,17 +1835,17 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 </div>
 
 <nav class="tab-bar">
-  <button class="tab-btn" data-tab="pipeline">Pipeline</button>
+  <button class="tab-btn active" data-tab="about">About</button>
+  <button class="tab-btn" data-tab="pipeline">Demo</button>
   <button class="tab-btn" data-tab="system">System Performance</button>
   <button class="tab-btn" data-tab="architecture">Architecture</button>
-  <button class="tab-btn active" data-tab="about">About</button>
 </nav>
 
 <div class="main-content dashboard-container">
   <div id="tab-pipeline" class="tab-panel dashboard-grid" style="display:none;">
   
   <!-- Key Facts Banner - Critical points for judges -->
-  <div class="key-facts-banner" style="grid-column: 1 / -1;">
+  <div class="key-facts-banner">
     <div class="fact-item local">
       <div class="fact-icon">&#127968;</div>
       <div class="fact-content">
@@ -1797,6 +1869,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     </div>
   </div>
 
+  <div class="pipeline-main-row">
   <aside class="script-panel">
     <div class="script-selector">
       <label>Scenario Type</label>
@@ -1875,6 +1948,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   </div>
 </div>
   </div>
+  </div><!-- /pipeline-main-row -->
   </div><!-- /tab-pipeline -->
 
   <div id="tab-system" class="tab-panel" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:auto;">
@@ -1912,66 +1986,18 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
       <h1 class="arch-title">Edge Architecture Deep Dive</h1>
       <p class="arch-subtitle">Everything runs on-device. No cloud. No internet required.</p>
 
-      <!-- Why Edge Section -->
-      <div class="arch-section">
-        <h2>Why Edge Computing?</h2>
-        <div class="why-edge-grid">
-          <div class="why-card">
-            <div class="why-icon">&#128274;</div>
-            <h3>Privacy by Design</h3>
-            <p>Audio never leaves the device. No cloud storage. No transcripts shared. What happens in the home stays in the home.</p>
-          </div>
-          <div class="why-card">
-            <div class="why-icon">&#128225;</div>
-            <h3>No Internet Required</h3>
-            <p>54% of low-income seniors lack broadband. Anchor works completely offline&mdash;protection doesn&rsquo;t depend on connectivity.</p>
-          </div>
-          <div class="why-card">
-            <div class="why-icon">&#9889;</div>
-            <h3>Real-Time Response</h3>
-            <p>Cloud round-trip adds 200-500ms latency. Edge processing enables sub-2-second intervention during active scam attempts.</p>
-          </div>
-          <div class="why-card">
-            <div class="why-icon">&#128176;</div>
-            <h3>No Subscription</h3>
-            <p>No ongoing cloud costs. One-time hardware purchase. Sustainable protection that doesn&rsquo;t require monthly fees.</p>
-          </div>
-        </div>
+      <!-- Architecture Sub-Navigation -->
+      <div class="arch-subnav">
+        <button class="arch-subnav-btn active" data-arch-section="pipeline">Pipeline</button>
+        <button class="arch-subnav-btn" data-arch-section="proof">Proof</button>
+        <button class="arch-subnav-btn" data-arch-section="why-edge">Why Edge</button>
+        <button class="arch-subnav-btn" data-arch-section="hardware">Hardware</button>
+        <button class="arch-subnav-btn" data-arch-section="detection">Detection</button>
+        <button class="arch-subnav-btn" data-arch-section="models">Models</button>
       </div>
 
-      <!-- Hardware Section -->
-      <div class="arch-section">
-        <h2>Hardware Platform</h2>
-        <div class="hardware-spec">
-          <div class="jetson-diagram">
-            <div class="jetson-box">
-              <span class="jetson-label">NVIDIA Jetson Orin Nano</span>
-              <div class="jetson-specs">
-                <div>6-core ARM Cortex-A78AE</div>
-                <div>1024-core Ampere GPU</div>
-                <div>8GB LPDDR5 RAM</div>
-                <div>40 TOPS AI Performance</div>
-              </div>
-            </div>
-            <div class="peripheral">&#127908; USB Microphone</div>
-            <div class="peripheral">&#128266; Speaker Output</div>
-          </div>
-          <table class="arch-spec-table">
-            <tr><th>Component</th><th>Specification</th></tr>
-            <tr><td>Platform</td><td>NVIDIA Jetson Orin Nano 8GB</td></tr>
-            <tr><td>CPU</td><td>6-core ARM Cortex-A78AE @ 1.5 GHz</td></tr>
-            <tr><td>GPU</td><td>1024 CUDA cores (Ampere architecture)</td></tr>
-            <tr><td>RAM</td><td>8GB LPDDR5 (shared CPU/GPU)</td></tr>
-            <tr><td>Power</td><td>5-15W (typically ~6W active)</td></tr>
-            <tr><td>Input</td><td>JOUNIVO USB Microphone (44.1kHz &rarr; 16kHz)</td></tr>
-            <tr><td>Output</td><td>3.5mm audio jack to speaker</td></tr>
-            <tr><td>OS</td><td>Ubuntu 22.04 (JetPack 6.0)</td></tr>
-          </table>
-        </div>
-      </div>
-
-      <!-- Pipeline Architecture -->
-      <div class="arch-section">
+      <!-- Pipeline Architecture (FIRST) -->
+      <div class="arch-section arch-panel" id="arch-pipeline">
         <h2>Pipeline Architecture</h2>
         <div class="arch-pipeline-diagram">
           <div class="pipeline-row">
@@ -2043,10 +2069,113 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
             <span class="stat-desc">Power Draw</span>
           </div>
         </div>
+        <!-- ZMQ Ports inline -->
+        <div class="zmq-ports" style="margin-top: 20px;">
+          <div class="port-item">
+            <span class="port-num">:5555</span>
+            <span class="port-desc">audio_capture &rarr; speech_recognition (PCM audio)</span>
+          </div>
+          <div class="port-item">
+            <span class="port-num">:5556</span>
+            <span class="port-desc">speech_recognition &rarr; content_analyzer (transcripts)</span>
+          </div>
+          <div class="port-item">
+            <span class="port-num">:5557</span>
+            <span class="port-desc">content_analyzer &rarr; audio_intervention (risk + tactics)</span>
+          </div>
+          <div class="port-item">
+            <span class="port-num">:5558</span>
+            <span class="port-desc">content_analyzer &rarr; judges_window (visualization)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Proof Points (SECOND) -->
+      <div class="arch-section arch-panel proof-section" id="arch-proof" style="display:none;">
+        <h2>&#128269; Want Proof?</h2>
+        <div class="proof-grid">
+          <div class="proof-item">
+            <h4>1. Network Isolation</h4>
+            <code>ip addr show</code>
+            <p>We can disconnect WiFi and the system keeps working.</p>
+          </div>
+          <div class="proof-item">
+            <h4>2. Process List</h4>
+            <code>ps aux | grep python</code>
+            <p>See all 5 pipeline processes running locally.</p>
+          </div>
+          <div class="proof-item">
+            <h4>3. GPU Usage</h4>
+            <code>tegrastats</code>
+            <p>Watch real-time GPU load during inference.</p>
+          </div>
+          <div class="proof-item">
+            <h4>4. No External Calls</h4>
+            <code>netstat -tuln</code>
+            <p>Only localhost ports in use. No external connections.</p>
+          </div>
+        </div>
+        <p class="proof-cta">&#128070; Ask us to run any of these commands live!</p>
+      </div>
+
+      <!-- Why Edge Section -->
+      <div class="arch-section arch-panel" id="arch-why-edge" style="display:none;">
+        <h2>Why Edge Computing?</h2>
+        <div class="why-edge-grid">
+          <div class="why-card">
+            <div class="why-icon">&#128274;</div>
+            <h3>Privacy by Design</h3>
+            <p>Audio never leaves the device. No cloud storage. No transcripts shared.</p>
+          </div>
+          <div class="why-card">
+            <div class="why-icon">&#128225;</div>
+            <h3>No Internet Required</h3>
+            <p>54% of low-income seniors lack broadband. Anchor works offline.</p>
+          </div>
+          <div class="why-card">
+            <div class="why-icon">&#9889;</div>
+            <h3>Real-Time Response</h3>
+            <p>Cloud adds 200-500ms latency. Edge enables sub-2-second intervention.</p>
+          </div>
+          <div class="why-card">
+            <div class="why-icon">&#128176;</div>
+            <h3>No Subscription</h3>
+            <p>No cloud costs. One-time hardware purchase. Sustainable protection.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hardware Section -->
+      <div class="arch-section arch-panel" id="arch-hardware" style="display:none;">
+        <h2>Hardware Platform</h2>
+        <div class="hardware-spec">
+          <div class="jetson-diagram">
+            <div class="jetson-box">
+              <span class="jetson-label">NVIDIA Jetson Orin Nano</span>
+              <div class="jetson-specs">
+                <div>6-core ARM Cortex-A78AE</div>
+                <div>1024-core Ampere GPU</div>
+                <div>8GB LPDDR5 RAM</div>
+                <div>40 TOPS AI Performance</div>
+              </div>
+            </div>
+            <div class="peripheral">&#127908; USB Microphone</div>
+            <div class="peripheral">&#128266; Speaker Output</div>
+          </div>
+          <table class="arch-spec-table">
+            <tr><th>Component</th><th>Specification</th></tr>
+            <tr><td>Platform</td><td>NVIDIA Jetson Orin Nano 8GB</td></tr>
+            <tr><td>CPU</td><td>6-core ARM @ 1.5 GHz</td></tr>
+            <tr><td>GPU</td><td>1024 CUDA cores (Ampere)</td></tr>
+            <tr><td>RAM</td><td>8GB LPDDR5 (shared)</td></tr>
+            <tr><td>Power</td><td>5-15W (~6W active)</td></tr>
+            <tr><td>OS</td><td>Ubuntu 22.04 (JetPack 6.0)</td></tr>
+          </table>
+        </div>
       </div>
 
       <!-- Detection System -->
-      <div class="arch-section">
+      <div class="arch-section arch-panel" id="arch-detection" style="display:none;">
         <h2>Two-Tier Detection System</h2>
         <div class="detection-tiers">
           <div class="tier-box tier1">
@@ -2081,38 +2210,8 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- ZeroMQ Communication -->
-      <div class="arch-section">
-        <h2>Inter-Process Communication</h2>
-        <p class="zmq-intro">Each pipeline stage runs as an isolated process. ZeroMQ provides fast, reliable message passing without shared memory risks.</p>
-        <div class="zmq-ports">
-          <div class="port-item">
-            <span class="port-num">:5555</span>
-            <span class="port-desc">audio_capture &rarr; speech_recognition (PCM audio chunks)</span>
-          </div>
-          <div class="port-item">
-            <span class="port-num">:5556</span>
-            <span class="port-desc">speech_recognition &rarr; content_analyzer (transcripts)</span>
-          </div>
-          <div class="port-item">
-            <span class="port-num">:5557</span>
-            <span class="port-desc">content_analyzer &rarr; audio_intervention (risk + tactics)</span>
-          </div>
-          <div class="port-item">
-            <span class="port-num">:5558</span>
-            <span class="port-desc">content_analyzer &rarr; judges_window (visualization data)</span>
-          </div>
-        </div>
-        <div class="zmq-benefits">
-          <div class="benefit">&#10003; Process isolation (crash one, others survive)</div>
-          <div class="benefit">&#10003; Language agnostic (Python &harr; C++ possible)</div>
-          <div class="benefit">&#10003; Zero-copy where possible</div>
-          <div class="benefit">&#10003; Easy to add/remove pipeline stages</div>
-        </div>
-      </div>
-
       <!-- Models Used -->
-      <div class="arch-section">
+      <div class="arch-section arch-panel" id="arch-models" style="display:none;">
         <h2>AI Models</h2>
         <table class="models-table">
           <tr>
@@ -2153,34 +2252,6 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
         </table>
       </div>
 
-      <!-- Proof Points -->
-      <div class="arch-section proof-section">
-        <h2>&#128269; Want Proof?</h2>
-        <div class="proof-grid">
-          <div class="proof-item">
-            <h4>1. Network Isolation</h4>
-            <code>ip addr show</code>
-            <p>We can disconnect WiFi and the system keeps working.</p>
-          </div>
-          <div class="proof-item">
-            <h4>2. Process List</h4>
-            <code>ps aux | grep python</code>
-            <p>See all 5 pipeline processes running locally.</p>
-          </div>
-          <div class="proof-item">
-            <h4>3. GPU Usage</h4>
-            <code>tegrastats</code>
-            <p>Watch real-time GPU load during inference.</p>
-          </div>
-          <div class="proof-item">
-            <h4>4. No External Calls</h4>
-            <code>netstat -tuln</code>
-            <p>Only localhost ports in use. No external connections.</p>
-          </div>
-        </div>
-        <p class="proof-cta">&#128070; Ask us to run any of these commands live!</p>
-      </div>
-
     </div>
   </div>
 
@@ -2188,27 +2259,29 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   <div id="tab-about" class="tab-panel active">
     <div class="hero-page">
 
-      <!-- Logo and tagline -->
-      <div class="hero-header">
-        <div class="hero-logo">
-          <span class="logo-dot">&#9679;</span>
-          <span class="logo-text">anchor</span>
+      <!-- Top row: Problem + Demo CTA side by side -->
+      <div class="hero-top-row">
+        <!-- Problem statement - the hook -->
+        <div class="problem-banner">
+          <div class="stat-large">
+            <span class="stat-number">$5B</span>
+            <span class="stat-label">lost to elder fraud annually</span>
+          </div>
+          <div class="stat-detail">
+            <span>67% involve phone scams</span>
+            <span class="divider">&bull;</span>
+            <span>Only 1 in 24 cases reported</span>
+          </div>
         </div>
-        <p class="hero-tagline">&ldquo;We only hear one side. We watch what we know.&rdquo;</p>
-      </div>
 
-      <!-- Problem statement - the hook -->
-      <div class="problem-banner">
-        <div class="stat-large">
-          <span class="stat-number">$28.3B</span>
-          <span class="stat-label">lost to elder fraud annually</span>
-        </div>
-        <div class="stat-detail">
-          <span>67% involve phone scams</span>
-          <span class="divider">&bull;</span>
-          <span>Only 1 in 24 cases reported</span>
-          <span class="divider">&bull;</span>
-          <span>AI voice cloning making it worse</span>
+        <!-- Demo CTA -->
+        <div class="demo-cta">
+          <div class="cta-pulse"></div>
+          <div class="cta-content">
+            <div class="cta-icon">&#127908;</div>
+            <h3>Ask Us For a Live Demo</h3>
+            <p>&ldquo;Try to scam our grandma&rdquo;</p>
+          </div>
         </div>
       </div>
 
@@ -2217,100 +2290,23 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
         <div class="prop-card">
           <div class="prop-icon">&#127968;</div>
           <div class="prop-title">100% On-Device</div>
-          <div class="prop-desc">All AI runs locally on edge hardware. No cloud. No data leaves the home. <strong>Ask us to prove it!</strong></div>
+          <div class="prop-desc">All AI runs locally. No cloud. No data leaves the home.</div>
         </div>
         <div class="prop-card">
           <div class="prop-icon">&#128066;</div>
           <div class="prop-title">One-Sided Only</div>
-          <div class="prop-desc">We only hear your loved one&rsquo;s voice. The caller is never recorded or analyzed.</div>
+          <div class="prop-desc">We only hear your loved one. Caller is never recorded.</div>
         </div>
         <div class="prop-card">
           <div class="prop-icon">&#128266;</div>
           <div class="prop-title">Audio, Not Screens</div>
-          <div class="prop-desc">Elder hears a gentle voice prompt&mdash;no app, no screen, no tech to learn.</div>
+          <div class="prop-desc">Elder hears a gentle voice&mdash;no app, no tech to learn.</div>
         </div>
       </div>
-
-      <!-- What we built -->
-      <div class="hero-section">
-        <h2 class="section-title">What We Built</h2>
-        <div class="pipeline-visual">
-          <div class="pipeline-step">
-            <div class="step-icon">&#127908;</div>
-            <div class="step-label">Ambient<br>Listening</div>
-          </div>
-          <div class="pipeline-arrow">&rarr;</div>
-          <div class="pipeline-step">
-            <div class="step-icon">&#128172;</div>
-            <div class="step-label">Whisper<br>ASR</div>
-          </div>
-          <div class="pipeline-arrow">&rarr;</div>
-          <div class="pipeline-step">
-            <div class="step-icon">&#129504;</div>
-            <div class="step-label">Threat<br>Detection</div>
-          </div>
-          <div class="pipeline-arrow">&rarr;</div>
-          <div class="pipeline-step">
-            <div class="step-icon">&#129302;</div>
-            <div class="step-label">LLM<br>Warning</div>
-          </div>
-          <div class="pipeline-arrow">&rarr;</div>
-          <div class="pipeline-step highlight">
-            <div class="step-icon">&#128266;</div>
-            <div class="step-label">Voice<br>Intervention</div>
-          </div>
-        </div>
-        <p class="pipeline-note">Real-time protection on <strong>NVIDIA Jetson Orin Nano</strong> &bull; No cloud required</p>
-      </div>
-
-      <!-- Technical highlights -->
-      <div class="hero-section">
-        <h2 class="section-title">The Hard Parts</h2>
-        <div class="tech-grid">
-          <div class="tech-item">
-            <span class="tech-stat">~500ms</span>
-            <span class="tech-desc">On-device LLM warning generation</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-stat">&lt;2s</span>
-            <span class="tech-desc">End-to-end detection pipeline</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-stat">2GB</span>
-            <span class="tech-desc">Total RAM for full pipeline</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-stat">5W</span>
-            <span class="tech-desc">Power consumption (edge device)</span>
-          </div>
-        </div>
-        <div class="tech-list">
-          <div class="tech-bullet"><span class="check">&#10003;</span> Two-tier scam detection: exact phrases + semantic similarity</div>
-          <div class="tech-bullet"><span class="check">&#10003;</span> Context-aware LLM warnings (Qwen 0.5B, GPU-accelerated)</div>
-          <div class="tech-bullet"><span class="check">&#10003;</span> Benign context filtering (birthday gifts &ne; scam)</div>
-          <div class="tech-bullet"><span class="check">&#10003;</span> Dignity-first design: intervene, don&rsquo;t surveil</div>
-        </div>
-      </div>
-
-      <!-- Demo CTA -->
-      <div class="demo-cta">
-        <div class="cta-pulse"></div>
-        <div class="cta-content">
-          <div class="cta-icon">&#127908;</div>
-          <h3>Ask Us For a Live Demo</h3>
-          <p>&ldquo;Try to scam our grandma &mdash; watch Anchor stop you&rdquo;</p>
-        </div>
-      </div>
-
-      <!-- Demo clarification note -->
-      <p class="demo-clarification">
-        &#8505;&#65039; <strong>Note:</strong> This dashboard is for demonstration only.
-        In real use, the elder simply hears Anchor&rsquo;s voice&mdash;they never see any screen or data.
-      </p>
 
       <!-- Footer -->
       <div class="hero-footer">
-        <p>Built in 36 hours by <strong>Celeste</strong> &amp; <strong>Kevin</strong></p>
+        <p>Built in 36 hours by <strong>Celeste Bean</strong> &amp; <strong>Harrison Lee</strong></p>
         <p>Stanford TreeHacks 2026</p>
       </div>
 
@@ -3156,6 +3152,26 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     div.appendChild(document.createTextNode(text || ""));
     return div.innerHTML;
   }
+
+  /* ── Architecture sub-tab switching ─────────────────────────────── */
+  document.querySelectorAll(".arch-subnav-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var section = this.dataset.archSection;
+      /* Update button states */
+      document.querySelectorAll(".arch-subnav-btn").forEach(function(b) {
+        b.classList.remove("active");
+      });
+      this.classList.add("active");
+      /* Show/hide panels */
+      document.querySelectorAll(".arch-panel").forEach(function(panel) {
+        panel.style.display = "none";
+      });
+      var targetPanel = document.getElementById("arch-" + section);
+      if (targetPanel) {
+        targetPanel.style.display = "block";
+      }
+    });
+  });
 })();
 </script>
 </body>
