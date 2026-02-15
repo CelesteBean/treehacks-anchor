@@ -74,6 +74,7 @@ class WarningGenerator:
             ) from e
 
         self.load_time = time.time() - start
+        self.last_generation_ms: float | None = None
         logger.info("LLM loaded in %.1fs", self.load_time)
 
     def _resolve_model_path(self, path: str) -> Path:
@@ -137,6 +138,7 @@ class WarningGenerator:
                 )
                 warning = f"{template} {fallback}"
             
+            self.last_generation_ms = elapsed_ms
             logger.info("[LLM] %.0fms: %s...", elapsed_ms, warning[:60])
             return warning
             
@@ -156,6 +158,14 @@ class WarningGenerator:
     def _fallback_warning(self, threat_type: str) -> str:
         """Static fallback when LLM output is invalid or generation fails."""
         return self.get_fallback_warning(threat_type)
+
+    def get_stats(self) -> dict:
+        """Return LLM statistics for monitoring."""
+        return {
+            "load_time_s": self.load_time,
+            "last_generation_ms": self.last_generation_ms,
+            "model": "Qwen2.5-0.5B",
+        }
 
 
 # ---------------------------------------------------------------------------

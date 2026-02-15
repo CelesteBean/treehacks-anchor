@@ -52,6 +52,7 @@ class PipelineLatency:
 
     whisper: deque[float] = field(default_factory=lambda: deque(maxlen=10))
     analyzer: deque[float] = field(default_factory=lambda: deque(maxlen=10))
+    llm: deque[float] = field(default_factory=lambda: deque(maxlen=10))
     tts: deque[float] = field(default_factory=lambda: deque(maxlen=10))
 
     def add_whisper(self, ms: float) -> None:
@@ -59,6 +60,9 @@ class PipelineLatency:
 
     def add_analyzer(self, ms: float) -> None:
         self.analyzer.append(ms)
+
+    def add_llm(self, ms: float) -> None:
+        self.llm.append(ms)
 
     def add_tts(self, ms: float) -> None:
         self.tts.append(ms)
@@ -70,9 +74,11 @@ class PipelineLatency:
         return {
             "whisper_ms": _avg(self.whisper),
             "analyzer_ms": _avg(self.analyzer),
+            "llm_ms": _avg(self.llm),
             "tts_ms": _avg(self.tts),
             "whisper_samples": len(self.whisper),
             "analyzer_samples": len(self.analyzer),
+            "llm_samples": len(self.llm),
             "tts_samples": len(self.tts),
         }
 
@@ -166,20 +172,26 @@ def _parse_tegrastats_line(line: str) -> dict[str, Any]:
 
 
 def _try_tegrastats(interval_ms: int = 1000) -> dict[str, Any] | None:
-    """Run tegrastats once and parse output. Returns None if unavailable."""
+    """Run tegrastats, read one line, kill it. Returns None if unavailable."""
+    proc = None
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             ["tegrastats", "--interval", str(interval_ms)],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
-            timeout=2,
         )
-        if proc.returncode != 0 or not proc.stdout:
+        # Read first line (blocks until available)
+        line = proc.stdout.readline()
+        if not line:
             return None
-        lines = proc.stdout.strip().split("\n")
-        return _parse_tegrastats_line(lines[-1]) if lines else None
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return _parse_tegrastats_line(line.strip())
+    except (FileNotFoundError, OSError):
         return None
+    finally:
+        if proc:
+            proc.kill()
+            proc.wait()
 
 
 def _get_per_process_memory() -> dict[str, float]:
@@ -365,9 +377,13 @@ class SystemMonitor:
         # Pipeline latency
         pipeline = self._latency.to_dict()
         pipeline["e2e_ms"] = None
-        w, a, t = pipeline.get("whisper_ms"), pipeline.get("analyzer_ms"), pipeline.get("tts_ms")
-        if w is not None or a is not None or t is not None:
-            pipeline["e2e_ms"] = round((w or 0) + (a or 0) + (t or 0), 1)
+        w = pipeline.get("whisper_ms")
+        a = pipeline.get("analyzer_ms")
+        llm = pipeline.get("llm_ms")
+        t = pipeline.get("tts_ms")
+        # Calculate E2E if any component has latency data
+        if w is not None or a is not None or llm is not None or t is not None:
+            pipeline["e2e_ms"] = round((w or 0) + (a or 0) + (llm or 0) + (t or 0), 1)
 
         return {
             "timestamp": ts,
@@ -379,11 +395,11 @@ class SystemMonitor:
         }
 
     def _zmq_listener(self) -> None:
-        """Subscribe to transcript and tactic ports to capture latency."""
+        """Subscribe to transcript, tactic, and latency topics to capture pipeline latency."""
         try:
             sub = self.bus.create_subscriber(
                 ports=[TRANSCRIPT_PORT, TACTIC_PORT],
-                topics=["transcript", "tactics"],
+                topics=["transcript", "tactics", "latency"],
             )
             time.sleep(0.3)
             while not self._stop.is_set():
@@ -400,6 +416,14 @@ class SystemMonitor:
                     lat = data.get("inference_time_ms")
                     if lat is not None:
                         self._latency.add_analyzer(float(lat))
+                elif topic == "latency":
+                    # LLM and TTS latency from audio_intervention
+                    llm_ms = data.get("llm_ms")
+                    tts_ms = data.get("tts_ms")
+                    if llm_ms is not None:
+                        self._latency.add_llm(float(llm_ms))
+                    if tts_ms is not None:
+                        self._latency.add_tts(float(tts_ms))
         except Exception:
             logger.exception("ZMQ listener error")
 

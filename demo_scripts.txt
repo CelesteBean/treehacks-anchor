@@ -1,0 +1,128 @@
+=== DEMO TEST SCRIPTS ===
+
+##############################
+# SCAM SCENARIOS (Should trigger detection)
+##############################
+
+### [SCAM] Gift Card - Store Run ###
+"Yes, I can go to Walgreens right now."
+"How many gift cards do you need?"
+"Okay, five hundred dollars in Google Play cards."
+"Should I scratch off the back and read you the numbers?"
+
+### [SCAM] IRS Impersonation ###
+"The IRS? Oh my, what did I do wrong?"
+"You need my social security number to verify?"
+"Okay, my social security number is 4-8-3..."
+
+### [SCAM] Tech Support ###
+"My computer has a virus?"
+"TeamViewer? Let me download that for you."
+"Okay, I'm giving you remote access now."
+
+### [SCAM] Grandchild Emergency ###
+"Tommy? Is that you? You sound different."
+"Of course I'll help you with bail money, sweetie."
+"Don't worry, I won't tell your parents about this."
+
+### [SCAM] Medicare Scam ###
+"Yes, I'm on Medicare."
+"My Medicare number? Let me get my card."
+"And you need my bank account for the deposit?"
+
+### [SCAM] Lottery Winner ###
+"I won a million dollars? Really?"
+"Two thousand dollars in gift cards to claim my prize?"
+
+### [SCAM] Utility Shut-off ###
+"You're going to shut off my electricity today?"
+"There's a Bitcoin ATM at the gas station I can use?"
+
+### [SCAM] Bank Fraud Alert ###
+"Someone's using my account fraudulently?"
+"I need to wire money to a safe account you control?"
+
+### [SCAM] Romance Scam ###
+"I know we haven't met in person yet, but I trust you."
+"Of course I'll send you money through Western Union."
+
+### [SCAM] Social Security Suspension ###
+"My social security number is suspended?"
+"I'll go get the gift cards right now to pay the fine."
+
+##############################
+# BENIGN SCENARIOS (Should NOT trigger detection)
+##############################
+
+### [BENIGN] Birthday Gift Shopping ###
+"I'm at Target buying a gift card for my grandson's birthday."
+"He loves video games so I'm getting him a PlayStation card."
+"Fifty dollars should be a nice gift, don't you think?"
+
+### [BENIGN] Catching Up With Family ###
+"Hi sweetie, how are the kids doing?"
+"That's wonderful! I'm so glad you called."
+"Let's have dinner together this Sunday."
+"I'll make your favorite pot roast."
+
+### [BENIGN] Doctor Appointment ###
+"Yes, I have an appointment with Dr. Johnson at 2pm."
+"My prescription is ready at the pharmacy?"
+"I'll pick it up on my way home from the checkup."
+
+### [BENIGN] Legitimate Bank Call ###
+"Yes, I called the bank myself about my account."
+"I'm looking at my statement right now."
+"The charge on February 3rd was mine, that's correct."
+
+### [BENIGN] Ordering Food ###
+"I'd like to order a large pepperoni pizza please."
+"Yes, delivery to 123 Oak Street."
+"I'll pay with my credit card when it arrives."
+
+### [BENIGN] Planning a Trip ###
+"We're thinking about visiting Florida next month."
+"The grandkids want to go to Disney World."
+"I'll book the hotel online tonight."
+
+### [BENIGN] Church/Community ###
+"The church potluck is this Saturday at noon."
+"I'm bringing my famous apple pie."
+"Should I pick you up on the way there?"
+
+### [BENIGN] Home Maintenance ###
+"The plumber is coming tomorrow to fix the sink."
+"He quoted me two hundred dollars for the repair."
+"I'll write him a check when he's done."
+
+### [BENIGN] Talking to Neighbor ###
+"Good morning, Helen! Beautiful weather today."
+"My tomatoes are finally coming in."
+"Would you like some from my garden?"
+
+### [BENIGN] TV/Entertainment ###
+"Did you watch that new show on Netflix?"
+"The mystery was so good, I couldn't stop watching."
+"Let me know if you want to come over and watch together."
+
+##############################
+# QUICK TEST ONE-LINERS
+##############################
+
+# SCAM - Should trigger HIGH:
+"Yes I will buy the gift cards and read you the numbers"
+"Let me give you my social security number"
+"I'm downloading TeamViewer to give you remote access"
+"I won't tell my family about this, I promise"
+
+# SCAM - Should trigger MEDIUM:
+"I'll go to Walgreens and get the Google Play cards"
+"I'll send the money through Western Union today"
+
+# BENIGN - Should be LOW:
+"I'm buying a gift card for my grandson's birthday"
+"Let me get my credit card for this purchase"
+"The weather is really nice today"
+"I'll call my daughter and tell her about this"
+"My doctor appointment is at 3pm tomorrow"
+"I'm making cookies for the church bake sale"

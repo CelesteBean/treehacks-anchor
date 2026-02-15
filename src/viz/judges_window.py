@@ -562,7 +562,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     padding: 16px;
   }
 
-  /* ── Scenario dropdown: fixed width, all 6 options visible ──────── */
+  /* ── Scenario dropdown: fixed width, dark theme ──────── */
   .script-selector {
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
@@ -575,30 +575,91 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     color: var(--dim);
     margin-bottom: 6px;
   }
-  .scenario-select {
-    width: 100%;
-    padding: 12px;
-    font-size: 16px;
-    background: #2a2a2a;
-    color: #fff;
-    border: 1px solid #444;
-    border-radius: 4px;
-    cursor: pointer;
+
+  /* Toggle buttons for SCAM/BENIGN */
+  .scenario-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
   }
-  .scenario-select:focus {
+  .scenario-toggle button {
+    flex: 1;
+    padding: 10px 16px;
+    border: 2px solid #444;
+    border-radius: 6px;
+    background-color: #1e1e1e;
+    color: #888;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+  }
+  .scenario-toggle button:hover:not(.active) {
+    background-color: #2a2a2a;
+    color: #ccc;
+    border-color: #555;
+  }
+  .scenario-toggle button.active {
+    background-color: #2a2a2a;
+  }
+  .scenario-toggle button.scam.active {
+    border-color: var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 8px rgba(225, 112, 85, 0.3);
+  }
+  .scenario-toggle button.benign.active {
+    border-color: var(--success);
+    color: var(--success);
+    box-shadow: 0 0 8px rgba(0, 184, 148, 0.3);
+  }
+
+  /* Scenario dropdown - dark theme, forced styling for Jetson */
+  .scenario-select,
+  #script-select,
+  select.scenario-select {
+    width: 100%;
+    padding: 12px 36px 12px 12px;
+    font-size: 15px;
+    background-color: #1e1e1e !important;
+    color: #e0e0e0 !important;
+    border: 1px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+  .scenario-select:hover,
+  #script-select:hover {
+    border-color: #666;
+    background-color: #252525 !important;
+  }
+  .scenario-select:focus,
+  #script-select:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(91, 191, 179, 0.2);
   }
-  .scenario-select option {
-    background: #2a2a2a;
-    color: #fff;
-    padding: 8px;
+  .scenario-select option,
+  #script-select option {
+    background-color: #1e1e1e !important;
+    color: #e0e0e0 !important;
+    padding: 10px;
   }
-  .scenario-select optgroup {
+  .scenario-select optgroup,
+  #script-select optgroup {
     font-weight: 600;
     color: var(--dim);
+    background-color: #1a1a1a !important;
   }
+
   .scenario-type-badge {
+    display: inline-block;
     padding: 4px 10px;
     border-radius: 4px;
     font-size: 0.7rem;
@@ -613,6 +674,22 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .scenario-type-badge.benign {
     background: rgba(0, 184, 148, 0.2);
     color: var(--success);
+  }
+
+  /* Script lines styling with scam/benign distinction */
+  .script-line.scam-line {
+    border-left: 4px solid var(--danger);
+  }
+  .script-line.scam-line.current {
+    background: #3a2a2a;
+    border-left-color: #ff6b6b;
+  }
+  .script-line.benign-line {
+    border-left: 4px solid var(--success);
+  }
+  .script-line.benign-line.current {
+    background: #2a3a2a;
+    border-left-color: #4ade80;
   }
 
   /* ── Teleprompter: fixed height, scrollable script lines ───────── */
@@ -724,9 +801,947 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   .latency-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.9rem; }
   .latency-row .stage { color: var(--dim); }
   .latency-row .ms { font-weight: 600; color: var(--accent); }
+
+  /* ── Hero / About Page Styles ────────────────────────────────────── */
+  :root {
+    --anchor-teal: #00D9C0;
+  }
+
+  .hero-page {
+    padding: 40px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  /* Logo */
+  .hero-header {
+    margin-bottom: 32px;
+  }
+
+  .hero-logo {
+    font-size: 56px;
+    font-weight: 300;
+    margin-bottom: 12px;
+    letter-spacing: 6px;
+  }
+
+  .logo-dot {
+    color: var(--anchor-teal);
+    animation: logoPulse 2s ease-in-out infinite;
+    display: inline-block;
+  }
+
+  .logo-text {
+    color: #ffffff;
+  }
+
+  @keyframes logoPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+  }
+
+  .hero-tagline {
+    font-size: 20px;
+    color: #888;
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  /* Problem banner - the hook */
+  .problem-banner {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 2px solid var(--anchor-teal);
+    border-radius: 16px;
+    padding: 36px 24px;
+    margin-bottom: 40px;
+    box-shadow: 0 0 30px rgba(0, 217, 192, 0.15);
+  }
+
+  .stat-large {
+    margin-bottom: 16px;
+  }
+
+  .stat-number {
+    font-size: 80px;
+    font-weight: 700;
+    color: var(--anchor-teal);
+    display: block;
+    line-height: 1;
+    text-shadow: 0 0 40px rgba(0, 217, 192, 0.3);
+  }
+
+  .stat-label {
+    font-size: 24px;
+    color: #ccc;
+    margin-top: 8px;
+    display: block;
+  }
+
+  .stat-detail {
+    color: #888;
+    font-size: 16px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .stat-detail .divider {
+    color: #444;
+  }
+
+  /* Value prop cards */
+  .value-props {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+  }
+
+  .prop-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 28px 20px;
+    width: 220px;
+    transition: all 0.3s ease;
+  }
+
+  .prop-card:hover {
+    border-color: var(--anchor-teal);
+    transform: translateY(-6px);
+    box-shadow: 0 8px 24px rgba(0, 217, 192, 0.15);
+  }
+
+  .prop-icon {
+    font-size: 44px;
+    margin-bottom: 14px;
+  }
+
+  .prop-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+
+  .prop-desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.5;
+  }
+
+  /* Section titles */
+  .hero-section {
+    margin-bottom: 48px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: var(--anchor-teal);
+    margin-bottom: 28px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .section-title::before,
+  .section-title::after {
+    content: '';
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #333, transparent);
+  }
+
+  /* Pipeline visual */
+  .pipeline-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .pipeline-step {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 18px 14px;
+    min-width: 90px;
+    transition: all 0.3s;
+  }
+
+  .pipeline-step:hover {
+    border-color: var(--anchor-teal);
+  }
+
+  .pipeline-step.highlight {
+    border-color: var(--anchor-teal);
+    background: rgba(0, 217, 192, 0.1);
+    box-shadow: 0 0 20px rgba(0, 217, 192, 0.2);
+  }
+
+  .step-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .step-label {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.4;
+  }
+
+  .pipeline-arrow {
+    color: var(--anchor-teal);
+    font-size: 24px;
+    font-weight: 300;
+  }
+
+  .pipeline-note {
+    font-size: 14px;
+    color: #666;
+  }
+
+  .pipeline-note strong {
+    color: #76B900;
+  }
+
+  /* Tech grid */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  @media (max-width: 900px) {
+    .tech-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .tech-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 24px 16px;
+    border: 1px solid #2a2a2a;
+  }
+
+  .tech-stat {
+    display: block;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--anchor-teal);
+    margin-bottom: 6px;
+  }
+
+  .tech-desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.4;
+  }
+
+  .tech-list {
+    text-align: left;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .tech-bullet {
+    color: #ccc;
+    font-size: 15px;
+    margin: 12px 0;
+    padding-left: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .tech-bullet .check {
+    color: var(--anchor-teal);
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+
+  /* Demo CTA */
+  .demo-cta {
+    background: linear-gradient(135deg, rgba(0, 217, 192, 0.12) 0%, rgba(0, 217, 192, 0.04) 100%);
+    border: 2px solid var(--anchor-teal);
+    border-radius: 20px;
+    padding: 40px 32px;
+    margin: 48px auto;
+    max-width: 600px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(0, 217, 192, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: ctaPulse 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes ctaPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.6; }
+    50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
+  }
+
+  .cta-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .cta-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    animation: ctaBounce 2s ease-in-out infinite;
+    display: inline-block;
+  }
+
+  @keyframes ctaBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .demo-cta h3 {
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .demo-cta p {
+    font-size: 18px;
+    color: var(--anchor-teal);
+    font-style: italic;
+  }
+
+  /* Footer */
+  .hero-footer {
+    margin-top: 48px;
+    padding-top: 28px;
+    border-top: 1px solid #333;
+    color: #666;
+    font-size: 15px;
+  }
+
+  .hero-footer p {
+    margin: 6px 0;
+  }
+
+  .hero-footer strong {
+    color: var(--anchor-teal);
+    font-weight: 500;
+  }
+
+  /* Entrance animations */
+  .hero-page .hero-header,
+  .hero-page .problem-banner,
+  .hero-page .value-props,
+  .hero-page .hero-section,
+  .hero-page .demo-cta,
+  .hero-page .hero-footer {
+    animation: heroFadeInUp 0.7s ease-out forwards;
+    opacity: 0;
+  }
+
+  .hero-page .hero-header { animation-delay: 0.1s; }
+  .hero-page .problem-banner { animation-delay: 0.2s; }
+  .hero-page .value-props { animation-delay: 0.35s; }
+  .hero-page .hero-section:nth-of-type(1) { animation-delay: 0.45s; }
+  .hero-page .hero-section:nth-of-type(2) { animation-delay: 0.55s; }
+  .hero-page .demo-cta { animation-delay: 0.65s; }
+  .hero-page .hero-footer { animation-delay: 0.75s; }
+
+  @keyframes heroFadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* About tab panel */
+  .tab-panel.active#tab-about {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Key Facts Banner ────────────────────────────────────────────── */
+  .key-facts-banner {
+    display: flex;
+    gap: 16px;
+    background: #0d0d0d;
+    border: 2px solid var(--anchor-teal);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 16px;
+    margin-bottom: 0;
+  }
+
+  .fact-item {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+  }
+
+  .fact-item.local { background: rgba(0, 217, 192, 0.12); }
+  .fact-item.privacy { background: rgba(74, 158, 255, 0.12); }
+  .fact-item.dignity { background: rgba(255, 107, 107, 0.12); }
+
+  .fact-icon {
+    font-size: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .fact-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .fact-content strong {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .fact-content span {
+    color: #999;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .fact-content em {
+    color: var(--anchor-teal);
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .key-facts-banner {
+      flex-direction: column;
+    }
+  }
+
+  /* ── Judge Mode Badge (floating) ─────────────────────────────────── */
+  .judge-mode-badge {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: rgba(255, 107, 107, 0.95);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1000;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    animation: badgePulse 3s ease-in-out infinite;
+  }
+
+  @keyframes badgePulse {
+    0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }
+    50% { box-shadow: 0 4px 24px rgba(255, 107, 107, 0.5); }
+  }
+
+  .badge-icon {
+    font-size: 18px;
+  }
+
+  .badge-text {
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  .badge-note {
+    font-size: 10px;
+    opacity: 0.9;
+    margin-left: 8px;
+    padding-left: 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.4);
+  }
+
+  /* ── Elder Only Badge (transcript header) ───────────────────────── */
+  .transcript-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .transcript-header h2 {
+    margin-bottom: 0;
+  }
+
+  .elder-only-badge {
+    background: rgba(74, 158, 255, 0.2);
+    color: #4a9eff;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* ── Demo Clarification Note ─────────────────────────────────────── */
+  .demo-clarification {
+    text-align: center;
+    font-size: 13px;
+    color: #888;
+    margin-top: -24px;
+    margin-bottom: 32px;
+    padding: 0 20px;
+  }
+
+  .demo-clarification strong {
+    color: #aaa;
+  }
+
+  /* ── Architecture Page Styles ────────────────────────────────────── */
+  .tab-panel.active#tab-architecture {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .arch-page {
+    padding: 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .arch-title {
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .arch-subtitle {
+    color: var(--anchor-teal);
+    text-align: center;
+    margin-bottom: 40px;
+    font-size: 16px;
+  }
+
+  .arch-section {
+    margin-bottom: 48px;
+  }
+
+  .arch-section h2 {
+    font-size: 18px;
+    color: var(--anchor-teal);
+    border-bottom: 1px solid #333;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+  }
+
+  /* Why Edge Grid */
+  .why-edge-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .why-edge-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .why-card {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+
+  .why-card:hover {
+    border-color: var(--anchor-teal);
+  }
+
+  .why-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .why-card h3 {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .why-card p {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.4;
+  }
+
+  /* Hardware Section */
+  .hardware-spec {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .jetson-diagram {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 24px;
+    position: relative;
+    min-width: 280px;
+  }
+
+  .jetson-box {
+    background: #76b900;
+    color: #000;
+    padding: 16px;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .jetson-label {
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .jetson-specs {
+    font-size: 11px;
+    margin-top: 8px;
+    opacity: 0.8;
+  }
+
+  .peripheral {
+    background: #2a2a2a;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-top: 12px;
+    color: #aaa;
+  }
+
+  .arch-spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    flex: 1;
+    min-width: 300px;
+  }
+
+  .arch-spec-table th, .arch-spec-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+  }
+
+  .arch-spec-table th {
+    color: var(--anchor-teal);
+    font-weight: 600;
+  }
+
+  .arch-spec-table td {
+    color: #ccc;
+  }
+
+  /* Pipeline Diagram */
+  .arch-pipeline-diagram {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .pipeline-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .pipeline-row.second-row {
+    margin-top: 20px;
+    flex-direction: row-reverse;
+  }
+
+  .pipe-box {
+    background: #252525;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 16px;
+    min-width: 140px;
+    text-align: center;
+  }
+
+  .pipe-box.model { border-color: var(--anchor-teal); }
+  .pipe-box.input { border-color: #4a9eff; }
+  .pipe-box.output { border-color: #ff6b6b; }
+  .pipe-box.viz { border-color: #888; border-style: dashed; }
+
+  .pipe-icon { font-size: 24px; margin-bottom: 8px; }
+  .pipe-name { font-weight: 600; color: #fff; font-size: 12px; }
+  .pipe-tech { font-size: 10px; color: #888; margin-top: 4px; }
+  .pipe-mem { font-size: 10px; color: var(--anchor-teal); margin-top: 4px; }
+  .pipe-latency { font-size: 10px; color: #ffcc00; margin-top: 2px; }
+  .pipe-note { font-size: 9px; color: #666; font-style: italic; margin-top: 4px; }
+
+  .pipe-arrow {
+    color: var(--anchor-teal);
+    font-size: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .arrow-label {
+    font-size: 9px;
+    color: #666;
+    text-align: center;
+  }
+
+  .pipeline-summary {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .summary-stat {
+    text-align: center;
+  }
+
+  .stat-val {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--anchor-teal);
+  }
+
+  .stat-desc {
+    font-size: 11px;
+    color: #888;
+  }
+
+  /* Detection Tiers */
+  .detection-tiers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 800px) {
+    .detection-tiers { grid-template-columns: 1fr; }
+  }
+
+  .tier-box {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  .tier-box.tier1 { border-left: 4px solid #ff6b6b; }
+  .tier-box.tier2 { border-left: 4px solid var(--anchor-teal); }
+
+  .tier-box h3 {
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .tier-desc {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+  }
+
+  .tier-desc p { margin: 8px 0; }
+  .tier-desc ul { margin: 8px 0 8px 20px; }
+  .tier-desc li { margin: 4px 0; color: #888; }
+  .tier-desc strong { color: #ccc; }
+
+  /* ZMQ Diagram */
+  .zmq-intro {
+    color: #aaa;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .zmq-ports {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .port-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #2a2a2a;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .port-item:last-child { border-bottom: none; }
+
+  .port-num {
+    background: var(--anchor-teal);
+    color: #000;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    min-width: 50px;
+    text-align: center;
+  }
+
+  .port-desc {
+    font-size: 12px;
+    color: #aaa;
+  }
+
+  .zmq-benefits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .benefit {
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Models Table */
+  .models-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .models-table th, .models-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+  }
+
+  .models-table th {
+    background: #1a1a1a;
+    color: var(--anchor-teal);
+  }
+
+  .models-table td {
+    color: #aaa;
+  }
+
+  /* Proof Section */
+  .proof-section {
+    background: linear-gradient(135deg, rgba(0, 217, 192, 0.1) 0%, rgba(0, 217, 192, 0.02) 100%);
+    border: 1px solid var(--anchor-teal);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .proof-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 800px) {
+    .proof-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .proof-item {
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .proof-item h4 {
+    color: #fff;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .proof-item code {
+    display: block;
+    background: #000;
+    color: var(--anchor-teal);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-bottom: 8px;
+    font-family: monospace;
+  }
+
+  .proof-item p {
+    font-size: 11px;
+    color: #888;
+  }
+
+  .proof-cta {
+    text-align: center;
+    color: var(--anchor-teal);
+    font-weight: 600;
+  }
+
+  /* Architecture page entrance animations */
+  .arch-page .arch-section {
+    animation: heroFadeInUp 0.7s ease-out forwards;
+    opacity: 0;
+  }
+
+  .arch-page .arch-section:nth-of-type(1) { animation-delay: 0.1s; }
+  .arch-page .arch-section:nth-of-type(2) { animation-delay: 0.2s; }
+  .arch-page .arch-section:nth-of-type(3) { animation-delay: 0.3s; }
+  .arch-page .arch-section:nth-of-type(4) { animation-delay: 0.4s; }
+  .arch-page .arch-section:nth-of-type(5) { animation-delay: 0.5s; }
+  .arch-page .arch-section:nth-of-type(6) { animation-delay: 0.6s; }
+  .arch-page .arch-section:nth-of-type(7) { animation-delay: 0.7s; }
 </style>
 </head>
 <body>
+
+<!-- Judge Mode Badge - visible on all pages -->
+<div class="judge-mode-badge">
+  <span class="badge-icon">&#128065;</span>
+  <span class="badge-text">JUDGE VIEW</span>
+  <span class="badge-note">Elder sees nothing&mdash;only hears voice alerts</span>
+</div>
 
 <header>
   <h1><span class="status-dot" id="status-dot"></span>.anchor</h1>
@@ -748,32 +1763,52 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 </div>
 
 <nav class="tab-bar">
-  <button class="tab-btn active" data-tab="pipeline">Pipeline</button>
+  <button class="tab-btn" data-tab="pipeline">Pipeline</button>
   <button class="tab-btn" data-tab="system">System Performance</button>
+  <button class="tab-btn" data-tab="architecture">Architecture</button>
+  <button class="tab-btn active" data-tab="about">About</button>
 </nav>
 
 <div class="main-content dashboard-container">
-  <div id="tab-pipeline" class="tab-panel active dashboard-grid">
+  <div id="tab-pipeline" class="tab-panel dashboard-grid" style="display:none;">
+  
+  <!-- Key Facts Banner - Critical points for judges -->
+  <div class="key-facts-banner" style="grid-column: 1 / -1;">
+    <div class="fact-item local">
+      <div class="fact-icon">&#127968;</div>
+      <div class="fact-content">
+        <strong>100% Local Processing</strong>
+        <span>All AI runs on this device. No cloud. No internet required. <em>Ask us to prove it!</em></span>
+      </div>
+    </div>
+    <div class="fact-item privacy">
+      <div class="fact-icon">&#128066;</div>
+      <div class="fact-content">
+        <strong>One-Sided Listening</strong>
+        <span>We only hear the elder&rsquo;s voice. The scammer&rsquo;s audio is never captured or analyzed.</span>
+      </div>
+    </div>
+    <div class="fact-item dignity">
+      <div class="fact-icon">&#128263;</div>
+      <div class="fact-content">
+        <strong>Elder Doesn&rsquo;t See This</strong>
+        <span>This dashboard is for judges only. The elder simply hears a calm voice intervention.</span>
+      </div>
+    </div>
+  </div>
+
   <aside class="script-panel">
     <div class="script-selector">
+      <label>Scenario Type</label>
+      <!-- Toggle buttons for SCAM/BENIGN -->
+      <div class="scenario-toggle">
+        <button class="scam active" id="toggle-scam" onclick="setScenarioType('scam')">SCAM</button>
+        <button class="benign" id="toggle-benign" onclick="setScenarioType('benign')">BENIGN</button>
+      </div>
       <div class="scenario-type-badge" id="scenario-type-badge" style="display:none;"></div>
-      <label for="script-select">Scenario</label>
+      <label for="script-select">Select Scenario</label>
       <select id="script-select" class="scenario-select">
-        <option value="">— Select scenario —</option>
-        <optgroup label="Scam scenarios">
-          <option value="authority">[SCAM] Authority/Government</option>
-          <option value="bank">[SCAM] Bank Security</option>
-          <option value="grandchild">[SCAM] Grandchild Emergency</option>
-          <option value="tech">[SCAM] Tech Support</option>
-          <option value="payment">[SCAM] Payment Demand</option>
-          <option value="romance">[SCAM] Romance Scam</option>
-        </optgroup>
-        <optgroup label="Benign scenarios">
-          <option value="doctors">[BENIGN] Doctor&rsquo;s Office</option>
-          <option value="friend">[BENIGN] Friend Calling</option>
-          <option value="pharmacy">[BENIGN] Pharmacy Refill</option>
-          <option value="family">[BENIGN] Family Check-in</option>
-        </optgroup>
+        <!-- Options populated by JavaScript based on toggle -->
       </select>
     </div>
     <div class="teleprompter" id="teleprompter">
@@ -791,7 +1826,10 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
 <div class="grid">
   <!-- Transcript -->
   <div class="card" id="transcript-card">
-    <h2>Live Transcript</h2>
+    <div class="transcript-header">
+      <h2>Live Transcript</h2>
+      <span class="elder-only-badge">&#128066; Elder&rsquo;s voice only&mdash;caller not captured</span>
+    </div>
     <div id="transcript-lines">
       <div class="waiting-msg" id="transcript-waiting">Waiting for transcript data&hellip;</div>
     </div>
@@ -860,9 +1898,422 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
         <h3>Pipeline Latency (avg last 10)</h3>
         <div class="latency-row"><span class="stage">Audio &rarr; Whisper</span><span class="ms" id="lat-whisper">&mdash;</span></div>
         <div class="latency-row"><span class="stage">Whisper &rarr; Analyzer</span><span class="ms" id="lat-analyzer">&mdash;</span></div>
+        <div class="latency-row"><span class="stage">LLM Warning Gen</span><span class="ms" id="lat-llm">&mdash;</span></div>
         <div class="latency-row"><span class="stage">Analyzer &rarr; TTS</span><span class="ms" id="lat-tts">&mdash;</span></div>
         <div class="latency-row"><span class="stage">End-to-end</span><span class="ms" id="lat-e2e">&mdash;</span></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Architecture Deep Dive Tab -->
+  <div id="tab-architecture" class="tab-panel" style="display:none;">
+    <div class="arch-page">
+
+      <h1 class="arch-title">Edge Architecture Deep Dive</h1>
+      <p class="arch-subtitle">Everything runs on-device. No cloud. No internet required.</p>
+
+      <!-- Why Edge Section -->
+      <div class="arch-section">
+        <h2>Why Edge Computing?</h2>
+        <div class="why-edge-grid">
+          <div class="why-card">
+            <div class="why-icon">&#128274;</div>
+            <h3>Privacy by Design</h3>
+            <p>Audio never leaves the device. No cloud storage. No transcripts shared. What happens in the home stays in the home.</p>
+          </div>
+          <div class="why-card">
+            <div class="why-icon">&#128225;</div>
+            <h3>No Internet Required</h3>
+            <p>54% of low-income seniors lack broadband. Anchor works completely offline&mdash;protection doesn&rsquo;t depend on connectivity.</p>
+          </div>
+          <div class="why-card">
+            <div class="why-icon">&#9889;</div>
+            <h3>Real-Time Response</h3>
+            <p>Cloud round-trip adds 200-500ms latency. Edge processing enables sub-2-second intervention during active scam attempts.</p>
+          </div>
+          <div class="why-card">
+            <div class="why-icon">&#128176;</div>
+            <h3>No Subscription</h3>
+            <p>No ongoing cloud costs. One-time hardware purchase. Sustainable protection that doesn&rsquo;t require monthly fees.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hardware Section -->
+      <div class="arch-section">
+        <h2>Hardware Platform</h2>
+        <div class="hardware-spec">
+          <div class="jetson-diagram">
+            <div class="jetson-box">
+              <span class="jetson-label">NVIDIA Jetson Orin Nano</span>
+              <div class="jetson-specs">
+                <div>6-core ARM Cortex-A78AE</div>
+                <div>1024-core Ampere GPU</div>
+                <div>8GB LPDDR5 RAM</div>
+                <div>40 TOPS AI Performance</div>
+              </div>
+            </div>
+            <div class="peripheral">&#127908; USB Microphone</div>
+            <div class="peripheral">&#128266; Speaker Output</div>
+          </div>
+          <table class="arch-spec-table">
+            <tr><th>Component</th><th>Specification</th></tr>
+            <tr><td>Platform</td><td>NVIDIA Jetson Orin Nano 8GB</td></tr>
+            <tr><td>CPU</td><td>6-core ARM Cortex-A78AE @ 1.5 GHz</td></tr>
+            <tr><td>GPU</td><td>1024 CUDA cores (Ampere architecture)</td></tr>
+            <tr><td>RAM</td><td>8GB LPDDR5 (shared CPU/GPU)</td></tr>
+            <tr><td>Power</td><td>5-15W (typically ~6W active)</td></tr>
+            <tr><td>Input</td><td>JOUNIVO USB Microphone (44.1kHz &rarr; 16kHz)</td></tr>
+            <tr><td>Output</td><td>3.5mm audio jack to speaker</td></tr>
+            <tr><td>OS</td><td>Ubuntu 22.04 (JetPack 6.0)</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pipeline Architecture -->
+      <div class="arch-section">
+        <h2>Pipeline Architecture</h2>
+        <div class="arch-pipeline-diagram">
+          <div class="pipeline-row">
+            <div class="pipe-box input">
+              <div class="pipe-icon">&#127908;</div>
+              <div class="pipe-name">audio_capture</div>
+              <div class="pipe-tech">PyAudio + Resampling</div>
+              <div class="pipe-mem">~80 MB</div>
+            </div>
+            <div class="pipe-arrow">
+              <span class="arrow-label">ZMQ<br>PCM audio</span>
+              &rarr;
+            </div>
+            <div class="pipe-box model">
+              <div class="pipe-icon">&#128172;</div>
+              <div class="pipe-name">speech_recognition</div>
+              <div class="pipe-tech">Whisper small.en</div>
+              <div class="pipe-mem">~915 MB</div>
+              <div class="pipe-latency">~700ms</div>
+            </div>
+            <div class="pipe-arrow">
+              <span class="arrow-label">ZMQ<br>transcript</span>
+              &rarr;
+            </div>
+            <div class="pipe-box model">
+              <div class="pipe-icon">&#129504;</div>
+              <div class="pipe-name">content_analyzer</div>
+              <div class="pipe-tech">all-MiniLM-L6-v2</div>
+              <div class="pipe-mem">~450 MB</div>
+              <div class="pipe-latency">~120ms</div>
+            </div>
+          </div>
+          <div class="pipeline-row second-row">
+            <div class="pipe-box output">
+              <div class="pipe-icon">&#128266;</div>
+              <div class="pipe-name">audio_intervention</div>
+              <div class="pipe-tech">Piper TTS + Qwen 0.5B</div>
+              <div class="pipe-mem">~650 MB</div>
+              <div class="pipe-latency">~500ms LLM + ~300ms TTS</div>
+            </div>
+            <div class="pipe-arrow reverse">
+              &larr;
+              <span class="arrow-label">ZMQ<br>risk + tactics</span>
+            </div>
+            <div class="pipe-box viz">
+              <div class="pipe-icon">&#128202;</div>
+              <div class="pipe-name">judges_window</div>
+              <div class="pipe-tech">Flask + Chart.js</div>
+              <div class="pipe-mem">~60 MB</div>
+              <div class="pipe-note">(Demo only&mdash;elder doesn&rsquo;t see this)</div>
+            </div>
+          </div>
+        </div>
+        <div class="pipeline-summary">
+          <div class="summary-stat">
+            <span class="stat-val">~2.1 GB</span>
+            <span class="stat-desc">Total RAM Usage</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-val">&lt;2 sec</span>
+            <span class="stat-desc">End-to-End Latency</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-val">5 processes</span>
+            <span class="stat-desc">Isolated via ZeroMQ</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-val">~6W</span>
+            <span class="stat-desc">Power Draw</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detection System -->
+      <div class="arch-section">
+        <h2>Two-Tier Detection System</h2>
+        <div class="detection-tiers">
+          <div class="tier-box tier1">
+            <h3>Tier 1: Exact Phrase Match</h3>
+            <div class="tier-desc">
+              <p><strong>Speed:</strong> &lt;1ms (regex/string matching)</p>
+              <p><strong>Trigger:</strong> Known scam phrases from FBI/FTC databases</p>
+              <p><strong>Examples:</strong></p>
+              <ul>
+                <li>&ldquo;read you the gift card numbers&rdquo;</li>
+                <li>&ldquo;don&rsquo;t tell anyone about this&rdquo;</li>
+                <li>&ldquo;social security number is suspended&rdquo;</li>
+              </ul>
+              <p><strong>Result:</strong> Immediate HIGH risk (score = 0.7+)</p>
+            </div>
+          </div>
+          <div class="tier-box tier2">
+            <h3>Tier 2: Semantic Similarity</h3>
+            <div class="tier-desc">
+              <p><strong>Speed:</strong> ~120ms (embedding comparison)</p>
+              <p><strong>Model:</strong> all-MiniLM-L6-v2 (384-dim embeddings)</p>
+              <p><strong>Method:</strong> Cosine similarity to 50+ scam scenario descriptions</p>
+              <p><strong>Thresholds:</strong></p>
+              <ul>
+                <li>&gt;0.65 &rarr; HIGH risk</li>
+                <li>&gt;0.40 &rarr; MEDIUM risk</li>
+                <li>&lt;0.30 &rarr; LOW risk</li>
+              </ul>
+              <p><strong>Benign Override:</strong> Birthday/family context &rarr; force LOW</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZeroMQ Communication -->
+      <div class="arch-section">
+        <h2>Inter-Process Communication</h2>
+        <p class="zmq-intro">Each pipeline stage runs as an isolated process. ZeroMQ provides fast, reliable message passing without shared memory risks.</p>
+        <div class="zmq-ports">
+          <div class="port-item">
+            <span class="port-num">:5555</span>
+            <span class="port-desc">audio_capture &rarr; speech_recognition (PCM audio chunks)</span>
+          </div>
+          <div class="port-item">
+            <span class="port-num">:5556</span>
+            <span class="port-desc">speech_recognition &rarr; content_analyzer (transcripts)</span>
+          </div>
+          <div class="port-item">
+            <span class="port-num">:5557</span>
+            <span class="port-desc">content_analyzer &rarr; audio_intervention (risk + tactics)</span>
+          </div>
+          <div class="port-item">
+            <span class="port-num">:5558</span>
+            <span class="port-desc">content_analyzer &rarr; judges_window (visualization data)</span>
+          </div>
+        </div>
+        <div class="zmq-benefits">
+          <div class="benefit">&#10003; Process isolation (crash one, others survive)</div>
+          <div class="benefit">&#10003; Language agnostic (Python &harr; C++ possible)</div>
+          <div class="benefit">&#10003; Zero-copy where possible</div>
+          <div class="benefit">&#10003; Easy to add/remove pipeline stages</div>
+        </div>
+      </div>
+
+      <!-- Models Used -->
+      <div class="arch-section">
+        <h2>AI Models</h2>
+        <table class="models-table">
+          <tr>
+            <th>Model</th>
+            <th>Purpose</th>
+            <th>Size</th>
+            <th>Inference</th>
+            <th>Hardware</th>
+          </tr>
+          <tr>
+            <td><strong>Whisper small.en</strong></td>
+            <td>Speech-to-text</td>
+            <td>~244 MB</td>
+            <td>~700ms / 2.6s audio</td>
+            <td>GPU (CUDA)</td>
+          </tr>
+          <tr>
+            <td><strong>all-MiniLM-L6-v2</strong></td>
+            <td>Semantic embeddings</td>
+            <td>~90 MB</td>
+            <td>~50ms / sentence</td>
+            <td>CPU</td>
+          </tr>
+          <tr>
+            <td><strong>Qwen2.5-0.5B-Instruct</strong></td>
+            <td>Context-aware warnings</td>
+            <td>~468 MB (Q4)</td>
+            <td>~500ms / 25 tokens</td>
+            <td>GPU (CUDA)</td>
+          </tr>
+          <tr>
+            <td><strong>Piper TTS</strong></td>
+            <td>Voice synthesis</td>
+            <td>~60 MB</td>
+            <td>~300ms / sentence</td>
+            <td>CPU (ONNX)</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Proof Points -->
+      <div class="arch-section proof-section">
+        <h2>&#128269; Want Proof?</h2>
+        <div class="proof-grid">
+          <div class="proof-item">
+            <h4>1. Network Isolation</h4>
+            <code>ip addr show</code>
+            <p>We can disconnect WiFi and the system keeps working.</p>
+          </div>
+          <div class="proof-item">
+            <h4>2. Process List</h4>
+            <code>ps aux | grep python</code>
+            <p>See all 5 pipeline processes running locally.</p>
+          </div>
+          <div class="proof-item">
+            <h4>3. GPU Usage</h4>
+            <code>tegrastats</code>
+            <p>Watch real-time GPU load during inference.</p>
+          </div>
+          <div class="proof-item">
+            <h4>4. No External Calls</h4>
+            <code>netstat -tuln</code>
+            <p>Only localhost ports in use. No external connections.</p>
+          </div>
+        </div>
+        <p class="proof-cta">&#128070; Ask us to run any of these commands live!</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- About / Hero Tab -->
+  <div id="tab-about" class="tab-panel active">
+    <div class="hero-page">
+
+      <!-- Logo and tagline -->
+      <div class="hero-header">
+        <div class="hero-logo">
+          <span class="logo-dot">&#9679;</span>
+          <span class="logo-text">anchor</span>
+        </div>
+        <p class="hero-tagline">&ldquo;We only hear one side. We watch what we know.&rdquo;</p>
+      </div>
+
+      <!-- Problem statement - the hook -->
+      <div class="problem-banner">
+        <div class="stat-large">
+          <span class="stat-number">$28.3B</span>
+          <span class="stat-label">lost to elder fraud annually</span>
+        </div>
+        <div class="stat-detail">
+          <span>67% involve phone scams</span>
+          <span class="divider">&bull;</span>
+          <span>Only 1 in 24 cases reported</span>
+          <span class="divider">&bull;</span>
+          <span>AI voice cloning making it worse</span>
+        </div>
+      </div>
+
+      <!-- Value prop cards - Key differentiators -->
+      <div class="value-props">
+        <div class="prop-card">
+          <div class="prop-icon">&#127968;</div>
+          <div class="prop-title">100% On-Device</div>
+          <div class="prop-desc">All AI runs locally on edge hardware. No cloud. No data leaves the home. <strong>Ask us to prove it!</strong></div>
+        </div>
+        <div class="prop-card">
+          <div class="prop-icon">&#128066;</div>
+          <div class="prop-title">One-Sided Only</div>
+          <div class="prop-desc">We only hear your loved one&rsquo;s voice. The caller is never recorded or analyzed.</div>
+        </div>
+        <div class="prop-card">
+          <div class="prop-icon">&#128266;</div>
+          <div class="prop-title">Audio, Not Screens</div>
+          <div class="prop-desc">Elder hears a gentle voice prompt&mdash;no app, no screen, no tech to learn.</div>
+        </div>
+      </div>
+
+      <!-- What we built -->
+      <div class="hero-section">
+        <h2 class="section-title">What We Built</h2>
+        <div class="pipeline-visual">
+          <div class="pipeline-step">
+            <div class="step-icon">&#127908;</div>
+            <div class="step-label">Ambient<br>Listening</div>
+          </div>
+          <div class="pipeline-arrow">&rarr;</div>
+          <div class="pipeline-step">
+            <div class="step-icon">&#128172;</div>
+            <div class="step-label">Whisper<br>ASR</div>
+          </div>
+          <div class="pipeline-arrow">&rarr;</div>
+          <div class="pipeline-step">
+            <div class="step-icon">&#129504;</div>
+            <div class="step-label">Threat<br>Detection</div>
+          </div>
+          <div class="pipeline-arrow">&rarr;</div>
+          <div class="pipeline-step">
+            <div class="step-icon">&#129302;</div>
+            <div class="step-label">LLM<br>Warning</div>
+          </div>
+          <div class="pipeline-arrow">&rarr;</div>
+          <div class="pipeline-step highlight">
+            <div class="step-icon">&#128266;</div>
+            <div class="step-label">Voice<br>Intervention</div>
+          </div>
+        </div>
+        <p class="pipeline-note">Real-time protection on <strong>NVIDIA Jetson Orin Nano</strong> &bull; No cloud required</p>
+      </div>
+
+      <!-- Technical highlights -->
+      <div class="hero-section">
+        <h2 class="section-title">The Hard Parts</h2>
+        <div class="tech-grid">
+          <div class="tech-item">
+            <span class="tech-stat">~500ms</span>
+            <span class="tech-desc">On-device LLM warning generation</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-stat">&lt;2s</span>
+            <span class="tech-desc">End-to-end detection pipeline</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-stat">2GB</span>
+            <span class="tech-desc">Total RAM for full pipeline</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-stat">5W</span>
+            <span class="tech-desc">Power consumption (edge device)</span>
+          </div>
+        </div>
+        <div class="tech-list">
+          <div class="tech-bullet"><span class="check">&#10003;</span> Two-tier scam detection: exact phrases + semantic similarity</div>
+          <div class="tech-bullet"><span class="check">&#10003;</span> Context-aware LLM warnings (Qwen 0.5B, GPU-accelerated)</div>
+          <div class="tech-bullet"><span class="check">&#10003;</span> Benign context filtering (birthday gifts &ne; scam)</div>
+          <div class="tech-bullet"><span class="check">&#10003;</span> Dignity-first design: intervene, don&rsquo;t surveil</div>
+        </div>
+      </div>
+
+      <!-- Demo CTA -->
+      <div class="demo-cta">
+        <div class="cta-pulse"></div>
+        <div class="cta-content">
+          <div class="cta-icon">&#127908;</div>
+          <h3>Ask Us For a Live Demo</h3>
+          <p>&ldquo;Try to scam our grandma &mdash; watch Anchor stop you&rdquo;</p>
+        </div>
+      </div>
+
+      <!-- Demo clarification note -->
+      <p class="demo-clarification">
+        &#8505;&#65039; <strong>Note:</strong> This dashboard is for demonstration only.
+        In real use, the elder simply hears Anchor&rsquo;s voice&mdash;they never see any screen or data.
+      </p>
+
+      <!-- Footer -->
+      <div class="hero-footer">
+        <p>Built in 36 hours by <strong>Celeste</strong> &amp; <strong>Kevin</strong></p>
+        <p>Stanford TreeHacks 2026</p>
+      </div>
+
     </div>
   </div>
 </div>
@@ -897,7 +2348,11 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
       this.classList.add("active");
       var panel = document.getElementById("tab-" + tab);
       if (panel) {
-        panel.style.display = tab === "pipeline" ? "grid" : "flex";
+        if (tab === "pipeline") {
+          panel.style.display = "grid";
+        } else {
+          panel.style.display = "flex";
+        }
         panel.classList.add("active");
       }
     });
@@ -948,7 +2403,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     var total = (data.memory || {}).total_mb || 1;
     var container = document.getElementById("process-bars-container");
     if (typeof pp === "object" && Object.keys(pp).length) {
-      var names = { audio_capture: "audio_capture", speech_recognition: "speech_recognition (Whisper)", content_analyzer: "content_analyzer", audio_intervention: "audio_intervention (Piper)", judges_window: "judges_window" };
+      var names = { audio_capture: "audio_capture", speech_recognition: "speech_recognition (Whisper)", content_analyzer: "content_analyzer (Embeddings)", audio_intervention: "audio_intervention (Piper + LLM)", judges_window: "judges_window" };
       var sumMb = 0;
       var html = "";
       for (var k in names) {
@@ -963,6 +2418,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     var pl = data.pipeline || {};
     document.getElementById("lat-whisper").textContent = pl.whisper_ms != null ? pl.whisper_ms + "ms" : "—";
     document.getElementById("lat-analyzer").textContent = pl.analyzer_ms != null ? pl.analyzer_ms + "ms" : "—";
+    document.getElementById("lat-llm").textContent = pl.llm_ms != null ? pl.llm_ms + "ms" : "—";
     document.getElementById("lat-tts").textContent = pl.tts_ms != null ? pl.tts_ms + "ms" : "—";
     document.getElementById("lat-e2e").textContent = pl.e2e_ms != null ? "~" + pl.e2e_ms + "ms" : "—";
     if (typeof Chart !== "undefined") {
@@ -974,98 +2430,309 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   });
 
   /* ── Script selector & teleprompter ────────────────────────────── */
-  const SCRIPTS = {
-    authority: [
-      "Oh my, this sounds serious.",
-      "Yes, I understand. I don't want any trouble.",
-      "My social security number? Well, if you need it...",
-      "I'm just a little confused about what I did wrong.",
-      "Please don't send anyone to my house.",
-      "Okay, okay, let me get my information.",
-      "How much did you say I need to pay to fix this?",
+  /* Scenario data organized by type */
+  const SCENARIOS = {
+    scam: [
+      {
+        id: "gift_card",
+        name: "[SCAM] Gift Card Purchase",
+        lines: [
+          "Hello? Yes, this is she speaking.",
+          "The IRS? Oh my goodness, what's wrong?",
+          "I owe back taxes? I had no idea.",
+          "Gift cards? That seems unusual, but okay.",
+          "Yes, I can go to Walgreens right now.",
+          "How many gift cards do you need?",
+          "Five hundred dollars in Google Play cards, got it.",
+          "Should I scratch off the back and read you the numbers?"
+        ]
+      },
+      {
+        id: "irs",
+        name: "[SCAM] IRS Impersonation",
+        lines: [
+          "Hello? Yes, I can hear you.",
+          "The IRS? Oh my, what did I do wrong?",
+          "I didn't know I owed back taxes.",
+          "A warrant for my arrest? Please, I don't want any trouble.",
+          "How much do I owe exactly?",
+          "You need my social security number to verify my identity?",
+          "Okay, let me get my card. It's in my purse.",
+          "My social security number is 4-8-3..."
+        ]
+      },
+      {
+        id: "tech_support",
+        name: "[SCAM] Tech Support",
+        lines: [
+          "Hello? Microsoft support?",
+          "My computer has a virus? Oh no.",
+          "Yes, I have been getting strange pop-ups lately.",
+          "You can fix it remotely? That would be wonderful.",
+          "TeamViewer? Let me write that down.",
+          "Okay, I'm downloading it now.",
+          "The code on my screen is 4-5-7-8-9-2.",
+          "You need my bank login to process the refund?"
+        ]
+      },
+      {
+        id: "grandchild",
+        name: "[SCAM] Grandchild Emergency",
+        lines: [
+          "Hello? Who is this?",
+          "Tommy? Is that you? You sound different, sweetie.",
+          "Oh no, you were in a car accident?",
+          "You're in jail? What happened?",
+          "Of course I'll help you, don't worry.",
+          "How much do you need for bail?",
+          "Three thousand dollars? That's a lot, but okay.",
+          "Don't worry, I won't tell your parents about this."
+        ]
+      },
+      {
+        id: "romance",
+        name: "[SCAM] Romance Scam",
+        lines: [
+          "Oh, it's so good to hear your voice!",
+          "I feel so lucky we found each other online.",
+          "Of course I trust you, darling.",
+          "You're stuck overseas? That's terrible.",
+          "I wish I could be there to help you.",
+          "How much do you need to get home?",
+          "Two thousand dollars? I can figure that out.",
+          "Western Union? I'll go there today, don't worry."
+        ]
+      },
+      {
+        id: "ssn_suspension",
+        name: "[SCAM] SSN Suspension",
+        lines: [
+          "Hello? Social Security Administration?",
+          "My social security number is suspended?",
+          "Oh my God, I don't understand what happened.",
+          "I don't want to be arrested, please help me.",
+          "What do I need to do to fix this?",
+          "Pay a fine? How much is it?",
+          "Gift cards? That's how I pay the government?",
+          "Okay, I'll go get them right now."
+        ]
+      },
+      {
+        id: "utility",
+        name: "[SCAM] Utility Shutoff",
+        lines: [
+          "Hello? The electric company?",
+          "You're going to shut off my power today?",
+          "But I thought I paid my bill already.",
+          "I must have missed a payment? I'm so sorry.",
+          "I have to pay right now or you'll cut it off?",
+          "I don't have my checkbook with me.",
+          "A Bitcoin ATM? I've never used one of those.",
+          "There's one at the gas station? Okay, I'll go now."
+        ]
+      },
+      {
+        id: "bank_fraud",
+        name: "[SCAM] Bank Fraud Alert",
+        lines: [
+          "Hello? Yes, this is my phone number.",
+          "You're calling from my bank's fraud department?",
+          "Someone's been using my account fraudulently?",
+          "Oh no, how much did they take?",
+          "Yes, I'll verify my information with you.",
+          "My account number? Let me get my checkbook.",
+          "You need me to transfer money to a safe account?",
+          "How do I do a wire transfer?"
+        ]
+      },
+      {
+        id: "lottery",
+        name: "[SCAM] Lottery Winner",
+        lines: [
+          "Hello? I won something?",
+          "A million dollars? Are you serious?",
+          "I don't remember entering, but that's wonderful!",
+          "What do I need to do to claim my prize?",
+          "A processing fee? How much is it?",
+          "Two thousand dollars? That seems like a lot.",
+          "I have to pay with gift cards?",
+          "Okay, if that's how it works. Where do I get them?"
+        ]
+      },
+      {
+        id: "medicare",
+        name: "[SCAM] Medicare Scam",
+        lines: [
+          "Hello? Medicare services?",
+          "Yes, I'm on Medicare, that's correct.",
+          "A new card? I didn't know I needed a new one.",
+          "Oh, the old ones are expiring? I see.",
+          "My Medicare number? Let me get my card.",
+          "It's 1-E-G-4... let me find my glasses.",
+          "You need my bank account for the deposit?",
+          "For the refund? Okay, let me get my checkbook."
+        ]
+      }
     ],
-    bank: [
-      "Suspicious activity? Oh no, what happened?",
-      "Yes, I have my card right here.",
-      "You need me to verify my account number?",
-      "I want to make sure my money is safe.",
-      "A verification code just came to my phone.",
-      "You want me to read it to you? Okay, it says...",
-      "Should I stay on the line while you fix it?",
-    ],
-    grandchild: [
-      "Tommy? Is that you? You sound different.",
-      "Oh my god, are you hurt? What happened?",
-      "You're in jail? How did this happen?",
-      "Of course I'll help you, sweetheart.",
-      "I won't tell your parents, I promise.",
-      "How much do you need for the bail?",
-      "I can go to the store and get that for you.",
-    ],
-    tech: [
-      "A virus? Oh dear, I don't know how that happened.",
-      "Yes, I can see the screen you're talking about.",
-      "You need remote access? Is that safe?",
-      "I'm typing in what you told me.",
-      "It's asking for my password now.",
-      "Three hundred dollars to fix it? That seems like a lot.",
-      "Let me get my credit card.",
-    ],
-    payment: [
-      "A warrant for my arrest? There must be a mistake.",
-      "I've never been in trouble with the law.",
-      "If I pay now, this goes away?",
-      "Gift cards? That's an unusual way to pay.",
-      "Which store should I go to?",
-      "I'm writing down the amounts you need.",
-      "I'll go right now. Please don't hang up.",
-    ],
-    romance: [
-      "I feel so lucky we found each other.",
-      "Of course I trust you, darling.",
-      "You're stuck overseas? That's terrible.",
-      "I wish I could be there to help you.",
-      "How much do you need to get home?",
-      "Western Union? I can figure out how to do that.",
-      "I'd do anything for you, you know that.",
-    ],
-    /* Benign scenarios for false-positive testing */
-    doctors: [
-      "Hello? Yes, this is she.",
-      "Oh yes, I remember. Tuesday at two o'clock.",
-      "Do I need to bring my insurance card?",
-      "And I shouldn't eat anything before the appointment?",
-      "Okay, I'll be there fifteen minutes early.",
-      "Thank you for calling to remind me.",
-    ],
-    friend: [
-      "Margaret! It's so good to hear from you.",
-      "I've been meaning to call you too.",
-      "How are the grandchildren doing?",
-      "That sounds wonderful. I'd love to see the photos.",
-      "Yes, let's have lunch this week.",
-      "Thursday works perfectly for me. See you then!",
-    ],
-    pharmacy: [
-      "Yes, this is the right number.",
-      "My blood pressure medication, yes.",
-      "It's ready for pickup? Great.",
-      "I can come by this afternoon.",
-      "Do I need to bring anything?",
-      "Thank you, I appreciate the reminder.",
-    ],
-    family: [
-      "Hi sweetheart! How are you?",
-      "Work is going well? That's good to hear.",
-      "Yes, I'm feeling much better this week.",
-      "I made that soup recipe you sent me.",
-      "Sunday dinner sounds lovely.",
-      "I love you too. Talk soon.",
-    ],
+    benign: [
+      {
+        id: "birthday_gift",
+        name: "[BENIGN] Birthday Gift Shopping",
+        lines: [
+          "Hi honey, I'm at Target right now.",
+          "I'm buying a gift card for Tommy's birthday.",
+          "He loves video games, so I'm getting PlayStation.",
+          "Fifty dollars should be a nice gift, right?",
+          "They have such cute birthday cards here too.",
+          "I'll wrap it up nice when I get home.",
+          "The party is Saturday at two o'clock.",
+          "Should I bring my famous chocolate cake?"
+        ]
+      },
+      {
+        id: "family_call",
+        name: "[BENIGN] Catching Up With Family",
+        lines: [
+          "Hi sweetie! I'm so glad you called.",
+          "How are the kids doing in school?",
+          "That's wonderful! Tommy got an A? I'm so proud.",
+          "And how's work going for you?",
+          "Let's have dinner together this Sunday.",
+          "I'll make your favorite pot roast.",
+          "Bring the kids, I haven't seen them in weeks.",
+          "I love you too, dear. See you Sunday!"
+        ]
+      },
+      {
+        id: "doctor",
+        name: "[BENIGN] Doctor Appointment",
+        lines: [
+          "Hello? Yes, this is Margaret speaking.",
+          "Oh, Dr. Johnson's office! Thank you for calling.",
+          "Yes, I have my appointment tomorrow at 2pm.",
+          "My prescription is ready at the pharmacy?",
+          "That's wonderful, I was running low.",
+          "I'll pick it up on my way home from the checkup.",
+          "Do I need to fast before the blood work?",
+          "Okay, no food after midnight. Got it!"
+        ]
+      },
+      {
+        id: "bank_legit",
+        name: "[BENIGN] Legitimate Bank Call",
+        lines: [
+          "Yes, I actually called the bank earlier today.",
+          "I had a question about a charge on my statement.",
+          "I'm looking at my statement right now.",
+          "The charge on February 3rd, that was me.",
+          "I bought groceries at Safeway that day.",
+          "Yes, everything else looks correct too.",
+          "Thank you for following up on my call.",
+          "I appreciate your help. Have a nice day!"
+        ]
+      },
+      {
+        id: "food_order",
+        name: "[BENIGN] Ordering Food",
+        lines: [
+          "Hi, I'd like to place an order for delivery.",
+          "A large pepperoni pizza, please.",
+          "And an order of garlic bread.",
+          "Yes, delivery to 123 Oak Street.",
+          "The apartment number is 4B.",
+          "How long will that take?",
+          "Thirty minutes? Perfect.",
+          "I'll pay with my credit card when it arrives."
+        ]
+      },
+      {
+        id: "trip_planning",
+        name: "[BENIGN] Planning a Trip",
+        lines: [
+          "Hi dear, I'm so excited about our trip!",
+          "We're thinking about visiting Florida next month.",
+          "The grandkids really want to go to Disney World.",
+          "I found a nice hotel near the park.",
+          "It has a pool, the kids will love it.",
+          "I'll book everything online tonight.",
+          "Should we fly or drive down there?",
+          "Let me check the flight prices first."
+        ]
+      },
+      {
+        id: "church",
+        name: "[BENIGN] Church Event",
+        lines: [
+          "Hello, Pastor Williams! How are you?",
+          "Yes, I'm planning to come to the potluck Saturday.",
+          "It starts at noon at the fellowship hall, right?",
+          "I'm bringing my famous apple pie.",
+          "The one with the crumb topping everyone loves.",
+          "Should I pick up Helen on the way?",
+          "She doesn't drive anymore, poor thing.",
+          "See you Saturday! God bless."
+        ]
+      },
+      {
+        id: "home_repair",
+        name: "[BENIGN] Home Maintenance",
+        lines: [
+          "Hello? Yes, this is the Johnson residence.",
+          "Oh, the plumber! Thanks for calling back.",
+          "The kitchen sink has been leaking for days.",
+          "Tomorrow morning works perfectly for me.",
+          "You quoted two hundred dollars, right?",
+          "That sounds reasonable to me.",
+          "I'll have coffee ready when you get here.",
+          "Thank you so much. See you at nine!"
+        ]
+      },
+      {
+        id: "neighbor",
+        name: "[BENIGN] Talking to Neighbor",
+        lines: [
+          "Good morning, Helen! Beautiful weather today.",
+          "How's your garden coming along?",
+          "My tomatoes are finally turning red!",
+          "It's been such a good summer for vegetables.",
+          "Would you like some from my garden?",
+          "I have more zucchini than I know what to do with.",
+          "Come by this afternoon, I'll have a bag ready.",
+          "We should have tea together soon!"
+        ]
+      },
+      {
+        id: "tv_chat",
+        name: "[BENIGN] TV Discussion",
+        lines: [
+          "Hi Susan! Did you watch that show last night?",
+          "The mystery on Netflix, I forget the name.",
+          "It was so good, I couldn't stop watching!",
+          "I stayed up way past my bedtime.",
+          "You haven't seen it yet? Oh, you have to!",
+          "No spoilers, I promise.",
+          "Come over Saturday and we'll watch together.",
+          "I'll make popcorn. See you then!"
+        ]
+      }
+    ]
   };
 
-  const SCAM_KEYS = ["authority", "bank", "grandchild", "tech", "payment", "romance"];
-  const BENIGN_KEYS = ["doctors", "friend", "pharmacy", "family"];
+  /* Build flat SCRIPTS object for backward compatibility */
+  const SCRIPTS = {};
+  const SCAM_KEYS = [];
+  const BENIGN_KEYS = [];
+
+  SCENARIOS.scam.forEach(function(s) {
+    SCRIPTS[s.id] = s.lines;
+    SCAM_KEYS.push(s.id);
+  });
+  SCENARIOS.benign.forEach(function(s) {
+    SCRIPTS[s.id] = s.lines;
+    BENIGN_KEYS.push(s.id);
+  });
+
+  let currentScenarioType = "scam";
 
   const scriptSelect = document.getElementById("script-select");
   const scriptLinesEl = document.getElementById("script-lines");
@@ -1074,9 +2741,46 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
   const currentLineNumEl = document.getElementById("current-line-num");
   const totalLinesEl = document.getElementById("total-lines");
   const scenarioTypeBadge = document.getElementById("scenario-type-badge");
+  const toggleScamBtn = document.getElementById("toggle-scam");
+  const toggleBenignBtn = document.getElementById("toggle-benign");
 
   let currentScript = null;
   let currentLineIndex = 0;
+
+  /* ── Toggle between SCAM and BENIGN scenarios ─────────────────── */
+  window.setScenarioType = function(type) {
+    currentScenarioType = type;
+
+    /* Update toggle button styling */
+    if (toggleScamBtn && toggleBenignBtn) {
+      toggleScamBtn.classList.remove("active");
+      toggleBenignBtn.classList.remove("active");
+      if (type === "scam") {
+        toggleScamBtn.classList.add("active");
+      } else {
+        toggleBenignBtn.classList.add("active");
+      }
+    }
+
+    /* Populate dropdown with scenarios of this type */
+    scriptSelect.innerHTML = "";
+    var defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "— Select " + type + " scenario —";
+    scriptSelect.appendChild(defaultOption);
+
+    SCENARIOS[type].forEach(function(scenario) {
+      var option = document.createElement("option");
+      option.value = scenario.id;
+      option.textContent = scenario.name;
+      scriptSelect.appendChild(option);
+    });
+
+    /* Reset current script */
+    currentScript = null;
+    currentLineIndex = 0;
+    renderScript();
+  };
 
   function renderScript() {
     if (!currentScript || !SCRIPTS[currentScript]) {
@@ -1086,10 +2790,13 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
       if (scenarioTypeBadge) scenarioTypeBadge.style.display = "none";
       return;
     }
+    var isBenign = BENIGN_KEYS.indexOf(currentScript) >= 0;
+    var lineTypeClass = isBenign ? "benign-line" : "scam-line";
+
     if (scenarioTypeBadge) {
-      scenarioTypeBadge.style.display = "block";
-      scenarioTypeBadge.textContent = BENIGN_KEYS.indexOf(currentScript) >= 0 ? "BENIGN" : "SCAM";
-      scenarioTypeBadge.className = "scenario-type-badge " + (BENIGN_KEYS.indexOf(currentScript) >= 0 ? "benign" : "scam");
+      scenarioTypeBadge.style.display = "inline-block";
+      scenarioTypeBadge.textContent = isBenign ? "BENIGN" : "SCAM";
+      scenarioTypeBadge.className = "scenario-type-badge " + (isBenign ? "benign" : "scam");
     }
     const lines = SCRIPTS[currentScript];
     teleprompterPlaceholder.style.display = "none";
@@ -1099,7 +2806,7 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     totalLinesEl.textContent = lines.length;
     lines.forEach(function(line, i) {
       const div = document.createElement("div");
-      var cls = "script-line";
+      var cls = "script-line " + lineTypeClass;
       if (i === currentLineIndex) cls += " current";
       else if (i < currentLineIndex) cls += " completed";
       div.className = cls;
@@ -1154,17 +2861,32 @@ DASHBOARD_HTML: str = r"""<!DOCTYPE html>
     } else if (e.key === "r" || e.key === "R") {
       e.preventDefault();
       resetScript();
+    } else if (e.key === "s" || e.key === "S") {
+      e.preventDefault();
+      setScenarioType("scam");
+    } else if (e.key === "b" || e.key === "B") {
+      e.preventDefault();
+      setScenarioType("benign");
     } else if (e.key >= "1" && e.key <= "9") {
-      var keys = ["authority", "bank", "grandchild", "tech", "payment", "romance", "doctors", "friend", "pharmacy"];
-      selectScript(keys[parseInt(e.key, 10) - 1]);
+      var scenarios = SCENARIOS[currentScenarioType];
+      var idx = parseInt(e.key, 10) - 1;
+      if (idx < scenarios.length) {
+        selectScript(scenarios[idx].id);
+      }
     } else if (e.key === "0") {
-      selectScript("family");
+      var scenarios = SCENARIOS[currentScenarioType];
+      if (scenarios.length >= 10) {
+        selectScript(scenarios[9].id);
+      }
     }
   });
 
   document.getElementById("teleprompter").addEventListener("click", function() {
     advanceLine();
   });
+
+  /* ── Initialize with SCAM scenarios on page load ──────────────── */
+  setScenarioType("scam");
 
   /* ── Component status & ready banner ──────────────────────────── */
   const components = {

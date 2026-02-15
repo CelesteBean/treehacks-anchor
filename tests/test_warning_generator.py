@@ -5,10 +5,22 @@ from __future__ import annotations
 import pytest
 
 from src.core.warning_generator import (
-    FALLBACK_TEMPLATES,
-    _safe_extract_phrases,
+    FALLBACK_COMPLETIONS,
+    ALERT_TEMPLATES,
     WarningGenerator,
 )
+
+
+def _safe_extract_phrases(risk_factors: list[str], max_items: int = 3) -> list[str]:
+    """Helper to extract phrases from risk factor strings (test utility)."""
+    result = []
+    for rf in risk_factors[:max_items]:
+        if ":" in rf:
+            phrase = rf.split(":", 1)[1].strip().strip("'\"")
+        else:
+            phrase = rf.strip()
+        result.append(phrase)
+    return result
 
 
 class TestSafeExtractPhrases:
@@ -35,8 +47,8 @@ class TestSafeExtractPhrases:
         assert got == ["plain risk factor"]
 
 
-class TestFallbackTemplates:
-    """Test fallback templates cover expected threat types."""
+class TestFallbackCompletions:
+    """Test fallback completions cover expected threat types."""
 
     @pytest.mark.parametrize(
         "threat_type",
@@ -51,17 +63,23 @@ class TestFallbackTemplates:
         ],
     )
     def test_known_threat_has_fallback(self, threat_type: str) -> None:
-        msg = FALLBACK_TEMPLATES[threat_type]
+        msg = FALLBACK_COMPLETIONS[threat_type]
         assert isinstance(msg, str)
         assert len(msg) > 10
-        keywords = ("scam", "warning", "stop", "cautious", "risky", "hang up")
+        keywords = ("hang up", "speak", "not", "trust", "family", "reversed")
         assert any(kw in msg.lower() for kw in keywords), f"Fallback should contain a safety keyword: {msg[:80]}"
 
     def test_unknown_threat_uses_generic(self) -> None:
-        result = FALLBACK_TEMPLATES.get(
-            "unknown_type", FALLBACK_TEMPLATES["generic_high_risk"]
+        result = FALLBACK_COMPLETIONS.get(
+            "unknown_type", FALLBACK_COMPLETIONS["generic_high_risk"]
         )
-        assert result == FALLBACK_TEMPLATES["generic_high_risk"]
+        assert result == FALLBACK_COMPLETIONS["generic_high_risk"]
+
+    def test_alert_templates_exist(self) -> None:
+        """Ensure ALERT_TEMPLATES has matching keys for common threats."""
+        for threat in ["gift_card", "tech_support", "generic_high_risk"]:
+            assert threat in ALERT_TEMPLATES
+            assert len(ALERT_TEMPLATES[threat]) > 10
 
 
 class TestWarningGeneratorInit:

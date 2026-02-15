@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 import zmq
 from piper import PiperVoice
 
-from src.core.message_bus import TACTIC_PORT, MessageBus
+from src.core.message_bus import TACTIC_PORT, SYSTEM_PORT, MessageBus
 
 try:
     from src.core.warning_generator import WarningGenerator
@@ -217,15 +217,20 @@ class AudioIntervention:
 
         self.fallback_path = Path("/tmp/anchor_fallback_warning.wav")
         self._generate_fallback()
+        self.last_tts_ms: float | None = None  # Track last TTS synthesis time
         logger.info("AudioIntervention ready (device=%s)", audio_device)
 
     def _generate_fallback(self) -> None:
         text = INTERVENTION_TEMPLATES["generic_high_risk"]
         self._synthesize_to_file(text, str(self.fallback_path))
 
-    def _synthesize_to_file(self, text: str, path: str) -> None:
+    def _synthesize_to_file(self, text: str, path: str) -> float:
+        """Synthesize text to WAV file and return synthesis time in ms."""
+        start = time.perf_counter()
         with wave.open(path, "wb") as wav_file:
             self.voice.synthesize_wav(text, wav_file)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        return elapsed_ms
 
     def _play_audio(self, path: str) -> None:
         try:
@@ -348,12 +353,15 @@ class AudioIntervention:
 
         try:
             output_path = "/tmp/anchor_intervention.wav"
-            self._synthesize_to_file(warning_text, output_path)
+            tts_ms = self._synthesize_to_file(warning_text, output_path)
+            self.last_tts_ms = tts_ms
+            logger.debug("[INTERVENTION] [TTS] synthesized in %.0fms", tts_ms)
             logger.debug("[INTERVENTION] [PLAY] playing on %s", self.audio_device)
             self._play_audio(output_path)
             self.last_intervention_time = time.time()
         except Exception as e:
             logger.error("TTS failed, using fallback: %s", e)
+            self.last_tts_ms = None
             self._play_audio(str(self.fallback_path))
             self.last_intervention_time = time.time()
 
@@ -384,8 +392,11 @@ class AudioInterventionService:
             llm_model_path=llm_model_path,
         )
         self._subscriber: Optional[zmq.Socket] = None
+        self._publisher: Optional[zmq.Socket] = None  # Publish latency metrics
         self._stop = threading.Event()
         self.running = False
+        self._last_llm_ms: float | None = None  # Track last LLM generation time
+        self._last_tts_ms: float | None = None  # Track last TTS synthesis time
 
     def start(self) -> None:
         """Subscribe and process — blocking."""
@@ -394,9 +405,10 @@ class AudioInterventionService:
             ports=[TACTIC_PORT],
             topics=["tactics"],
         )
+        self._publisher = self.bus.create_publisher(TACTIC_PORT)
         self.running = True
         logger.info(
-            "AudioInterventionService started — SUB tactics :%d",
+            "AudioInterventionService started — SUB/PUB tactics :%d",
             TACTIC_PORT,
         )
 
@@ -415,6 +427,9 @@ class AudioInterventionService:
         if self._subscriber:
             self._subscriber.close()
             self._subscriber = None
+        if self._publisher:
+            self._publisher.close()
+            self._publisher = None
 
     def _main_loop(self) -> None:
         msg_count = 0
@@ -456,6 +471,28 @@ class AudioInterventionService:
                 )
 
             self._intervention.intervene(data)
+
+            # Track and publish latency metrics after intervention
+            if will_intervene:
+                # Track LLM generation time
+                if self._intervention._use_llm and self._intervention._warning_gen:
+                    self._last_llm_ms = self._intervention._warning_gen.last_generation_ms
+                
+                # Track TTS synthesis time
+                self._last_tts_ms = self._intervention.last_tts_ms
+                
+                # Publish latency metrics to ZMQ for system_monitor
+                if self._publisher and (self._last_llm_ms is not None or self._last_tts_ms is not None):
+                    latency_data = {
+                        "llm_ms": self._last_llm_ms,
+                        "tts_ms": self._last_tts_ms,
+                    }
+                    self.bus.publish(self._publisher, "latency", latency_data)
+                    logger.debug(
+                        "[INTERVENTION] Published latency: llm=%.0fms tts=%.0fms",
+                        self._last_llm_ms or 0,
+                        self._last_tts_ms or 0,
+                    )
 
 
 # ---------------------------------------------------------------------------

@@ -37,13 +37,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 TIER1_PHRASES = [
-    # Buying/obtaining gift cards for caller
+    # === Gift Cards: Buying/obtaining ===
     "buy a gift card",
     "buy the gift cards",
     "buy gift cards",
     "getting the gift cards",
     "picking up the gift cards",
-    # Reading gift card numbers/codes to caller
+    "get gift cards",
+    "go get the gift cards",
+    "go to walgreens",
+    "go to cvs",
+    "go to target",
+    "go to walmart",
+    # === Gift Cards: Reading codes ===
     "read you the numbers on the back",
     "read you the numbers",
     "read the numbers on the back",
@@ -54,7 +60,8 @@ TIER1_PHRASES = [
     "give you the numbers on the back",
     "scratch off the code",
     "scratch off the numbers",
-    # Not telling family
+    "scratch off the back",
+    # === Isolation: Not telling family ===
     "won't tell my family",
     "wont tell my family",
     "will not tell my family",
@@ -64,26 +71,124 @@ TIER1_PHRASES = [
     "dont tell my family",
     "keep this between us",
     "promise not to tell",
-    # Giving SSN
+    "won't tell your parents",
+    "wont tell your parents",
+    "don't tell anyone",
+    "dont tell anyone",
+    # === SSN/Identity ===
     "my social security number is",
     "give you my social security",
     "my ssn is",
-    # Wiring/paying to avoid arrest
+    "social security number to verify",
+    "verify my social security",
+    "social security is suspended",
+    "ssn is suspended",
+    "number is suspended",
+    # === Arrest/Legal Threats ===
     "wire the money to avoid",
     "pay to clear the warrant",
     "pay the fine to avoid arrest",
     "how much to avoid arrest",
+    "warrant for my arrest",
+    "arrested if i don't",
+    "avoid arrest",
+    "don't want to be arrested",
+    "don't want a warrant",
+    # === Cryptocurrency/Wire ===
     "going to the bitcoin atm",
     "at the bitcoin atm",
-    # Remote access
+    "bitcoin atm",
+    "send bitcoin",
+    "send cryptocurrency",
+    "wire transfer",
+    "western union",
+    "moneygram",
+    "wire you money",
+    "wire money",
+    # === Remote Access/Tech Support ===
     "download that software",
     "download that software for you",
     "installing the program you sent",
     "give you remote access",
+    "giving you remote access",
     "downloading the software now",
+    "download that for you",
+    "let me download",
     "teamviewer",
     "anydesk",
     "logmein",
+    "remote access",
+    # === Medicare/Insurance Scam ===
+    "my medicare number",
+    "medicare number is",
+    "read you my medicare",
+    "new medicare card",
+    "medicare card number",
+    "my medicare card",
+    "let me get my card",
+    # === Lottery/Prize Scam ===
+    "processing fee",
+    "pay to claim",
+    "claim my prize",
+    "pay the fee to claim",
+    "taxes on my winnings",
+    "taxes on winnings",
+    "won a million",
+    "won the lottery",
+    "pay fees to claim",
+    "gift cards to claim",
+    # === Romance Scam ===
+    "send you money",
+    "send money through",
+    "stuck overseas",
+    "need money to get home",
+    "need to get home",
+    "money to get home",
+    "how much do you need",
+    "i'll send you",
+    "i will send you",
+    "help you financially",
+    "send you the money",
+    "do anything for you",
+    # === Utility Shutoff Scam ===
+    "shut off my power",
+    "shut off my electricity",
+    "disconnect my service",
+    "pay right now or",
+    "cut off my gas",
+    "shut off today",
+    "disconnected today",
+    # === Bank Fraud Scam ===
+    "safe account",
+    "transfer to a safe",
+    "move money to protect",
+    "verify my account number",
+    "fraud department",
+    "fraudulently",
+    "account is compromised",
+    "protect your money",
+    "wire money to a safe",
+    # === Verification Codes ===
+    "read you the code",
+    "verification code",
+    "code that was sent",
+    "code on my phone",
+    "read it to you",
+    # === Bank Account/Deposit ===
+    "my bank account for",
+    "bank account number",
+    "account for the deposit",
+    "routing number",
+    # === General Pressure Tactics ===
+    "don't hang up",
+    "stay on the line",
+    "act immediately",
+    "right now or",
+    "today only",
+    "expire today",
+    "must act now",
+    "pay immediately",
+    "pay right now",
 ]
 
 # ---------------------------------------------------------------------------
@@ -92,43 +197,97 @@ TIER1_PHRASES = [
 
 SCAM_SCENARIOS: list[tuple[str, str]] = [
     # (description, category for tactics)
+    # === Gift Card Scams ===
     ("The elderly person agrees to purchase gift cards and read the redemption codes to the caller", "financial"),
     ("The victim is buying iTunes or Google Play cards and will read the codes over the phone", "financial"),
     ("Someone is instructing the elder to buy gift cards and scratch off the codes", "financial"),
     ("The person is at a store purchasing gift cards for someone on the phone", "financial"),
+    ("The victim is picking up gift cards at a store and will provide the codes to the caller", "financial"),
+    ("The person is getting cards from the store and will call back with the redemption codes", "financial"),
+    ("The elder agrees to go to Walgreens or CVS to buy gift cards", "financial"),
+    ("The person is asking how many gift cards they need to buy", "financial"),
+    # === IRS/Government Impersonation ===
     ("The victim is being threatened with arrest if they don't pay immediately", "fear"),
     ("The caller claims there is a warrant and the person must pay to avoid jail", "authority"),
     ("Someone claiming to be from the IRS is demanding immediate payment", "authority"),
     ("The person is being told they will be arrested unless they wire money", "fear"),
+    ("The victim doesn't want to have a warrant for their arrest", "fear"),
+    ("Someone from the government is asking for the victim's social security number", "authority"),
+    # === Grandchild/Family Emergency ===
     ("A grandchild or family member is urgently asking for bail money", "urgency"),
     ("Someone claiming to be a grandchild in jail needs money for a lawyer", "financial"),
     ("The victim is being asked to send money to help a family member in trouble", "financial"),
+    ("The person promises not to tell the parents about the grandchild's situation", "isolation"),
+    ("The victim is asking how much money is needed for bail", "financial"),
+    ("A family member sounds different on the phone and needs emergency money", "urgency"),
+    # === Tech Support Scams ===
     ("The caller is requesting remote access to the victim's computer", "isolation"),
     ("Someone is guiding the victim to download software to fix their computer", "isolation"),
     ("The victim is being told their computer has a virus and needs remote access", "authority"),
     ("The person is being directed to install TeamViewer or AnyDesk", "isolation"),
+    ("The victim is downloading remote access software at the caller's request", "isolation"),
+    ("Someone is asking the elder to pay to fix their computer", "financial"),
+    # === Isolation Tactics ===
     ("The victim is being told to keep this call secret from family members", "isolation"),
     ("The caller insists the victim must not tell anyone about this", "isolation"),
     ("The person is promising not to tell their family about the call", "isolation"),
+    # === Cryptocurrency/Wire Transfer ===
     ("The victim is being directed to withdraw cash and deposit it at a cryptocurrency ATM", "financial"),
     ("Someone is instructing the elder to buy Bitcoin and send it", "financial"),
     ("The person is going to a Bitcoin ATM to send money", "financial"),
     ("The victim is being told to wire money through Western Union", "financial"),
     ("Someone is directing the elder to transfer money or send a wire", "financial"),
+    ("The person is at a gas station using a Bitcoin ATM", "financial"),
+    # === Identity/SSN Scams ===
     ("The victim is providing their social security number to the caller", "authority"),
     ("The person is giving their bank account number to someone on the phone", "financial"),
     ("The elder is reading a verification code from their phone to the caller", "financial"),
     ("The victim is providing sensitive personal information to stop a supposed fraud", "authority"),
+    ("Someone tells the victim their social security number is suspended", "authority"),
+    ("The person is told they need to verify their SSN to avoid arrest", "fear"),
+    # === Romance Scams ===
     ("Someone the victim met online is asking for money to get home", "financial"),
     ("A romantic interest online needs money for an emergency", "financial"),
     ("The person is sending money to someone they care about online", "financial"),
+    ("The victim trusts someone they've never met in person and wants to help financially", "financial"),
+    ("The elder is wiring money to help an online romantic partner who is stuck overseas", "financial"),
+    ("Someone the victim loves online needs money for travel or medical expenses", "financial"),
+    ("The person says they would do anything for someone they met online", "financial"),
+    # === Bank Fraud Alert Scams ===
     ("The victim is being told their bank account has fraud and must verify", "authority"),
     ("Someone claims to be from the bank and needs account verification", "authority"),
     ("The elder is being directed to move money to protect it from fraud", "financial"),
+    ("Someone claiming to be from the fraud department asks for account details", "authority"),
+    ("The victim is told to wire money to a safe account the caller controls", "financial"),
+    ("The person is transferring money to protect it from fraudulent activity", "financial"),
+    ("A verification code was sent and the victim is asked to read it aloud", "financial"),
+    # === Lottery/Prize Scams ===
     ("The victim won a prize but must pay fees to claim it", "financial"),
     ("Someone is telling the person they need to pay taxes on winnings", "authority"),
-    ("The victim is picking up gift cards at a store and will provide the codes to the caller", "financial"),
-    ("The person is getting cards from the store and will call back with the redemption codes", "financial"),
+    ("The elder is excited about winning a lottery they don't remember entering", "financial"),
+    ("The victim must pay a processing fee to receive their prize money", "financial"),
+    ("Someone asks for gift cards to pay the taxes on lottery winnings", "financial"),
+    ("The person won a million dollars but needs to pay fees first", "financial"),
+    # === Medicare/Insurance Scams ===
+    ("The victim is providing their Medicare number to someone claiming to offer a new card", "authority"),
+    ("Someone is asking the elder for their Medicare information to process benefits", "authority"),
+    ("The person is giving insurance information to an unsolicited caller", "financial"),
+    ("The victim is told they need a new Medicare card and must verify their number", "authority"),
+    ("Someone asks for the Medicare card number and bank account for a refund", "financial"),
+    ("The elder is on Medicare and someone is asking for their card information", "authority"),
+    # === Utility Shutoff Scams ===
+    ("The victim is threatened with immediate utility disconnection unless they pay now", "fear"),
+    ("Someone claiming to be from the power company demands immediate payment", "authority"),
+    ("The elder is being told their electricity will be shut off within hours", "urgency"),
+    ("The person is rushing to pay a utility bill to avoid service disconnection", "fear"),
+    ("The victim must pay at a Bitcoin ATM to prevent their power from being shut off", "financial"),
+    ("Someone says they will disconnect the gas or electricity today unless paid", "fear"),
+    # === SSN Suspension Scams ===
+    ("The victim is told their social security number has been suspended due to suspicious activity", "authority"),
+    ("Someone claiming to be from Social Security says the person will be arrested", "fear"),
+    ("The elder is paying money to reactivate their suspended social security number", "authority"),
+    ("The person is threatened with arrest if they don't pay to fix their SSN", "fear"),
+    ("The victim doesn't want to be arrested and agrees to pay immediately", "fear"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -136,14 +295,44 @@ SCAM_SCENARIOS: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 
 BENIGN_PATTERNS = [
+    # Medical/Healthcare
     r"\b(doctor|physician|hospital|pharmacy|prescription|appointment|checkup)\b",
+    r"\b(clinic|nurse|medical|health)\s+(appointment|visit|checkup)\b",
+    r"\bprescription\s+(refill|pickup|ready)\b",
+    # Financial professionals (legitimate)
     r"\b(tax preparer|accountant|financial advisor|my banker)\b",
+    r"\b(i called|i'm calling|i contacted)\s+(the bank|my bank|the credit union)\b",
+    r"\bappointment with\s+(my|the)\s+(banker|financial advisor|accountant)\b",
+    # Family/Gift occasions
     r"\b(birthday|nephew|niece|grandchild.*visit|family dinner)\b",
+    r"\b(anniversary|christmas|holiday|graduation)\s+(gift|present|card)\b",
     r"\b(gift card.*birthday|gift.*nephew|gift.*niece|gift.*grandson|gift.*granddaughter)\b",
+    r"\bgift\s+(for|to)\s+(my|the)\s+(grandson|granddaughter|nephew|niece|son|daughter)\b",
+    r"\bfor\s+(my|the)\s+(grandson|granddaughter|nephew|niece)\b.{0,20}\b(birthday|gift)\b",
+    # Video game cards as gifts
+    r"\b(playstation|xbox|nintendo|steam|gaming)\s+(card|gift)\b",
+    r"\b(video\s+game|gaming)\b.{0,20}\b(gift|present|card)\b",
+    r"\bgetting\s+him\s+a\b",
+    r"\bloves\s+video\s+games\b",
+    # Normal payment discussions
     r"\bcredit card\b.{0,25}\b(purchase|checkout|payment|pay)\b",
     r"\b(purchase|checkout|payment)\b.{0,25}\bcredit card\b",
+    r"\b(pay|paid)\s+(my|the)\s+(electric|gas|water|utility)\s+bill\b",
+    r"\bmonthly\s+(payment|bill|statement)\b",
+    # Social conversations
     r"\b(just checking in|how are you|good to hear|catch up)\b",
     r"\b(lunch plans|dinner plans|coffee|visiting)\b",
+    r"\bdinner\s+(together|with|at)\b",
+    # Community/Church
+    r"\b(church|potluck|bake sale|community center|volunteer)\b",
+    # Family context
+    r"\b(my|the)\s+(kids|grandkids|children|family)\s+(want|love|need|asked)\b",
+    r"\b(visiting|visit)\s+(the|my)\s+(grandkids|grandchildren|family)\b",
+    # Ordering food/services
+    r"\border\s+(a|the)\s+(pizza|food|delivery)\b",
+    r"\bdelivery\s+to\s+\d+\b",
+    # Travel planning
+    r"\b(vacation|trip|travel)\s+(to|plans|booking)\b",
 ]
 
 
