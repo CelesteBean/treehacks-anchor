@@ -140,11 +140,20 @@ def _parse_tegrastats_line(line: str) -> dict[str, Any]:
     if emc_match:
         out["emc_freq_mhz"] = int(emc_match.group(1))
 
-    # GPU: "GR3D_FREQ 12%@1300" or "GR3D_FREQ 5%@[1300,1300]"
-    gpu_match = re.search(r"GR3D(?:_FREQ)?\s*(\d+)%@\[?(\d+)", line)
+    # GPU: "GR3D_FREQ 18%" or "GR3D_FREQ 12%@1300" (Jetson Orin)
+    gpu_match = re.search(r"GR3D_FREQ\s+(\d+)%", line)
     if gpu_match:
         out["gpu_percent"] = int(gpu_match.group(1))
-        out["gpu_freq_mhz"] = int(gpu_match.group(2))
+
+    # GPU temperature: "gpu@47.125C"
+    gpu_temp_match = re.search(r"gpu@([\d.]+)C", line)
+    if gpu_temp_match:
+        out["gpu_temp_c"] = round(float(gpu_temp_match.group(1)), 1)
+
+    # GPU frequency (optional): "GR3D_FREQ 12%@1300"
+    gpu_freq_match = re.search(r"GR3D_FREQ\s+\d+%@\[?(\d+)", line)
+    if gpu_freq_match:
+        out["gpu_freq_mhz"] = int(gpu_freq_match.group(1))
 
     # Power: "VDD_CPU_GPU_CV 8210/8045" or "VDD_IN 8234"
     for pat in [r"VDD_CPU_GPU_CV\s+(\d+)", r"VDD_IN\s+(\d+)", r"POM_5V_IN\s+(\d+)"]:
@@ -332,13 +341,13 @@ class SystemMonitor:
             if "gpu_freq_mhz" in tegra:
                 pass  # used in gpu block below
 
-        # GPU block (Jetson / fallback)
+        # GPU block (Jetson tegrastats / fallback)
         gpu: dict[str, Any] = {
             "percent": tegra.get("gpu_percent") if tegra else None,
             "memory_used_mb": None,
             "memory_total_mb": None,
             "freq_mhz": tegra.get("gpu_freq_mhz") if tegra else None,
-            "temp_c": gpu_temp,
+            "temp_c": tegra.get("gpu_temp_c") if tegra else gpu_temp,
         }
         gpu_mem = _get_gpu_memory()
         if gpu_mem:
